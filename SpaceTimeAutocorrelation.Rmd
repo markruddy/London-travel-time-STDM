@@ -1,0 +1,223 @@
+---
+title: "London travel time - Data preparation and EDA"
+author: "Mark Ruddy"
+date: "17 February 2015"
+output: html_document
+---
+
+# Description
+
+Data preparation and EDA for apace-time aurocorrelation analysis of network data for London motor vehicle travel time analysis.
+
+#Package imports
+```{r}
+library(gdata) # for xls import
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(zoo)
+library(xts)
+# library(lubridate)
+library(chron)
+```
+
+
+# Space-time autocorrelation analysis
+
+## Road network data
+
+Network aggregate motor vehicle travel times in seconds per metre from 22 road links.
+
+Data taken between Monday 24th May 2010 and Friday 5th November 2010 (23 weeks and five days).
+
+The motor vehicle travel time data comes as a directed network.
+
+Spatial weights matrices for the travel data are a binary scheme row standardised. Standardisation is done to equally allocate the contribution of neighbouring nodes to the node of interest ([@cheng2012spatio p396] for details).
+
+## Data preparation
+
+Read in network aggregate travel time data (unit journey time - ujt). 
+```{r}
+ujt <- read.csv("~/Documents/Research/GISciPgDip/CEGEG076_SpatioTemporal/Coursework/ujt.csv")
+```
+
+Read in spatial weights. Need to open .xls file and copy/paste weight matrices into separate worksheets, then refer to individual worksheets during read.xls()
+```{r}
+w1 <- read.xls(xls = "~/Documents/Research/GISciPgDip/CEGEG076_SpatioTemporal/Coursework/Weight_Matrices.xls", sheet="w1",header =T)
+
+w2 <- read.xls(xls = "~/Documents/Research/GISciPgDip/CEGEG076_SpatioTemporal/Coursework/Weight_Matrices.xls", sheet="w2",header =T)
+
+w3 <- read.xls(xls = "~/Documents/Research/GISciPgDip/CEGEG076_SpatioTemporal/Coursework/Weight_Matrices.xls", sheet="w3",header =T)
+```
+
+
+Make date-time for ujt time series object
+Useful links > http://stackoverflow.com/questions/28587939/create-vector-of-non-weekend-time-intervals-for-part-of-a-day-in-r/28590233#28590233
+```{r}
+# create the interval vector
+intervals<-c()
+for(p in 6:20){
+  for(j in seq(0,55,by=5)){
+    intervals<-c(intervals,paste(p,j,sep=":"))
+  }
+  rm(j,p)
+}
+
+intervals<-c(intervals,"21:0")
+
+# or intervals <- times(72:252/288)
+# ref http://r.789695.n4.nabble.com/How-to-create-sequence-of-constant-time-interval-td881499.html
+
+# days
+dayseq <- timeBasedSeq("2010-05-24/2010-11-04/d")
+
+# concatenate days and times then format to POSIXct
+obstime<-strptime(unlist(lapply(dayseq,function(x){paste(x,intervals)})),format="%Y-%m-%d %H:%M", tz="GMT")
+
+# clean up
+rm(intervals,dayseq)
+```
+
+Make time series representation using zoo
+```{r}
+# library(zoo)
+
+ujts <- xts(ujt,obstime)
+
+# look at variables
+# head(coredata(ujts))
+
+# look at date/time portion 
+# head(index(ujts))
+```
+
+## Picking weekdays and plotting
+Tuesday, Wednesdays or Thursdays are assumed to be generally representative of traffic flows. 
+Aim: to extract time series only for midweek days and plot for specific links to determine whether all midweek days are comparable and to contrast with Mondays, Fridays and Weekends.
+
+### Time series objects
+Extract by day from time series object
+```{r}
+# Useful links >
+# https://grollchristian.wordpress.com/2013/04/22/time-series-data-in-r 
+# http://www.stat.berkeley.edu/~s133/dates.html
+ujts.tues <- ujts[weekdays(index(ujts)) %in% "Tuesday"]
+ujts.weds <- ujts[weekdays(index(ujts)) %in% "Wednesday"]
+ujts.thurs <- ujts[weekdays(index(ujts)) %in% "Thursday"]
+rm(ujts.tues,ujts.weds,ujts.thurs)
+```
+But we want to plot averages of time series from just one day. Using the zoo objects obtained above this gives time series objects that are difficult to plot in this format.
+
+### Dates and times as factors
+Solution: change approach and add dates and times as factors to the ujt data.frame.
+
+Add dates to ujt.
+```{r}
+# take date from ujts zoo object
+d <- as.Date(index(ujts), format="%d-%b-%Y")
+# combine with date as factor
+ujt.date <- cbind(as.factor(d),ujt)
+colnames(ujt.date)[1] <- "date"
+```
+
+Add time to ujt
+```{r}
+# create time intervals for one day
+intervals <- as.character(times(72:252/288))
+# convert to decimal time
+# ref http://stackoverflow.com/questions/5186972/how-to-convert-time-mmss-to-decimal-form-in-r
+intervals.d <- sapply(strsplit(intervals,":"),
+                      function(x) {
+                        x <- as.numeric(x)
+                        x[1]+x[2]/60
+                      })
+
+# for H:M:S times, repeat intervals for every day in time series
+# rep.time <- function(t) {
+#   i <- 1
+#   b <- NULL
+#   while(i < 167) {
+#   b <- c(b,as.character(t))
+#   i <- i+1
+#   }
+#   b<-times(b)
+#   rm(i)
+#   return(b)
+#   }
+#a <- rep.time(intervals.d)
+
+# for decimal times repeat intervals for every day in time series
+a <- rep(intervals.d,166)
+# head(a,190)
+
+# combine with time as factor
+ujt.datetime <- cbind(a,ujt.date)
+colnames(ujt.datetime)[1] <- "time"
+# head(ujt.datetime)
+
+# clean up
+rm(a, d, ujt.date,rep.time, intervals.d)
+```
+
+### Plot Tuesdays for a selection of links (X425, X2140, X432, X1419) or X1616, X463, X1593, X2324 which correspond with Cheng et al 2011.
+1. Filter day
+2. Group by time
+3. Find means for links
+```{r}
+ujt.tues.m <- ujt.datetime %>%
+  group_by(time) %>%
+  filter(weekdays(as.Date(date)) %in% "Tuesday") %>%
+  summarise_each(funs(mean)) %>%
+  select(time, X1616, X463, X1593, X2324)
+# checked for number of inputs to each mean by using summarise_each(func(mean,n())
+# 
+
+# gather data for plotting
+ujt.tues.m.g <- ujt.tues.m %>% gather(link, ujt_mean, -time)
+
+# plot mean speed for 
+# 1 metre/second = 2.23694 miles per hour ref google (1/ujt_mean*2.23694)
+ggplot(ujt.tues.m.g, aes(x=time, y=1/ujt_mean*2.23694, colour=link, group=link)) + 
+  scale_x_continuous(limits=c(6,21), breaks=6:21) +
+  scale_y_continuous(limits=c(0,15)) +
+  labs(title="Variation in mean traffic speed for Tuesdays", x="Time of day (hour)", y="Mean journey speed (miles/hour)") +
+  geom_line()
+```
+
+### Plot Tuesdays, Wednesdays, and Thursdays for links c("X1616", "X2085", "X432", "X1419") in 4 different facets.
+1. 
+```{r}
+# add weekdays and get means for each time to give ujt df for links we're interested in
+ujt.wkd <- ujt.datetime %>%
+  mutate(day = weekdays(as.Date(date))) %>%
+  group_by(time, day) %>%
+  summarise_each(funs(mean)) %>%
+  select(time, day, X425, X2085, X432, X1419, X463, X1593)
+
+# tidy data
+ujt.wkd.g <- ujt.wkd %>% gather(link, mean, -time:-day)
+
+p <- ggplot(ujt.wkd.g, aes(x=time, y=mean, colour=day))
+
+p + geom_line() + 
+  facet_wrap(~ link, nrow=3, scales="free_y") +
+  scale_x_continuous(limits=c(6,21), breaks=6:21) +
+  #scale_y_continuous(limits=c(0.05,0.35)) +
+  labs(title="Variation in mean motor vehicle speed", x="Time of day (hour)", y="Mean journey time (seconds/metre)")
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
