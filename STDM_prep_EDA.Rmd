@@ -16,9 +16,9 @@ library(gdata) # for xls import
 library(ggplot2)
 library(dplyr)
 library(tidyr)
-library(zoo)
+#library(zoo)
 library(xts)
-# library(lubridate)
+#library(lubridate)
 library(chron)
 ```
 
@@ -59,76 +59,48 @@ w3 <- read.csv("./data/weights3.csv")
 ```
 
 
-## Make date-time series for ujt time series observations
-Now we need to add the dates and times that each observation was made. This is most effectively done using a format that is intended for time-series analysis such as xts (extended time series).
-Useful links > http://stackoverflow.com/questions/28587939/create-vector-of-non-weekend-time-intervals-for-part-of-a-day-in-r/28590233#28590233
+## Make date-time series for ujt observations
+Now we need to add the dates and times when each observation was made. This is for data selection and plotting purposes.
 
 Create data and times
-```{r Create data and times}
+```{r dates and times for observations}
 # create time intervals for one day - 6:00 to 21:00
-intervals <- as.character(times(72:252/288))
-
-# create list of dates where observations were made - Monday 24th May 2010 and Friday 5th November 2010 (23 weeks and five days)
-dayseq <- timeBasedSeq("2010-05-24/2010-11-04/d")
-
-# concatenate date and times then format to POSIXct
-obstime<-strptime(unlist(lapply(dayseq,function(x){paste(x,intervals)})),format="%Y-%m-%d %H:%M", tz="GMT")
-
-# clean up
-rm(dayseq)
-```
-
-## Make unit journey time data into a time series object using xts
-We can produce a time series object here to make selection of individual days possible.
-
-Create time series xts object from ujt observations and date-time POSIXct
-```{r Create xts with dates-times}
-ujt.ts <- xts(ujt,obstime)
-
-# look at variables
-# head(coredata(ujt.ts))
-
-# look at date/time portion 
-# head(index(ujt.ts))
-
-# clean up
-rm(obstime)
+t <- as.character(times(72:252/288))
+d <- timeBasedSeq("2010-05-24/2010-11-04/d")
+obs.times <- rep(t, times=length(d))
+obs.dates <- sort(as.Date(rep(d, times=length(t)), format="%d-%m-%y"))
+datetimes<-strptime(paste(obs.dates,obs.times),format="%Y-%m-%d %H:%M", tz="GMT")
+rm(t,d)
 ```
 
 ## Plotting
 
-We want to plot averages of time series from just one day. The xts object is not suitable for plotting these data in ggplot2. Solution: add dates and times as factors to the ujt data.frame.
+We want to plot averages of time series from just one day.
 
 Create ujt data.frame with dates-times for plotting. Add dates to ujt with dates and times as factors and ujt as data.frame.
-```{r Create ujt data.frame with dates-times}
-# take date from ujt.ts xts object
-dates <- as.Date(index(ujt.ts), format="%d-%b-%Y")
-# combine with date as factor
-ujt.date <- cbind(as.factor(dates),ujt)
-colnames(ujt.date)[1] <- "date"
+```{r Create ujt data.frame with days}
+ujt.dates <- cbind(as.factor(obs.dates),ujt)
+colnames(ujt.dates)[1] <- "date"
+
 ```
 
 Add decimal time to ujt
 ```{r Add decimal time to ujt}
 # add decimal times for plotting
 # ref http://stackoverflow.com/questions/5186972/how-to-convert-time-mmss-to-decimal-form-in-r
-intervals.dec <- sapply(strsplit(intervals,":"),
+obs.dec <- sapply(strsplit(obs.times,":"),
                       function(x) {
                         x <- as.numeric(x)
                         x[1]+x[2]/60
                       })
 
-# for decimal times repeat intervals for every day in time series
-intervals.rep <- rep(intervals.dec,166)
-# head(intervals.rep,190)
-
 # combine with time as factor
-ujt.dt <- cbind(intervals.rep,ujt.date)
+ujt.dt <- cbind(obs.dec,ujt.dates)
 colnames(ujt.dt)[1] <- "time"
 # head(ujt.dt)
 
 # clean up
-rm(obstime, intervals, intervals.rep, dates, ujt.date, intervals.dec, dayseq)
+rm(dates, ujt.date, obs.dec, t,d, obs.times, obs.dates, ujt.dates)
 ```
 
 ## Picking weekdays
@@ -186,7 +158,7 @@ p + geom_line() +
   #scale_y_continuous(limits=c(0.05,0.35)) +
   labs(title="Average unit journey time profiles", x="Time of day (hour)", y="Mean unit journey time (seconds/metre)")
 
-rm(ujt.wkd, ujt.wkd.g)
+rm(p,ujt.wkd, ujt.wkd.g)
 ```
 
 
