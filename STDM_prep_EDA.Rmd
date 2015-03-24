@@ -184,7 +184,7 @@ p + geom_line() +
   facet_wrap(~ link, nrow=3, scales="free_y") +
   scale_x_continuous(limits=c(6,21), breaks=6:21) +
   #scale_y_continuous(limits=c(0.05,0.35)) +
-  labs(title="Average unit jounrey time profiles", x="Time of day (hour)", y="Mean unit journey time (seconds/metre)")
+  labs(title="Average unit journey time profiles", x="Time of day (hour)", y="Mean unit journey time (seconds/metre)")
 
 rm(ujt.wkd, ujt.wkd.g)
 ```
