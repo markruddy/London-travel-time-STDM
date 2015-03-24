@@ -43,14 +43,14 @@ ujt <- read.csv("./data/ujt.csv")
 
 Read in spatial weights. Need to open .xls file and copy/paste weight matrices into separate worksheets, then refer to individual worksheets during read.xls()
 Get weights from .xls file and write each to a new .csv
-/```{r}
+```{r}
 # w1 <- read.xls(xls = "./data/Weight_Matrices.xls", sheet="w1",header =T)
 # write.csv(w1, "./data/weights1.csv", row.names=F)
 # w2 <- read.xls(xls = "./data/Weight_Matrices.xls", sheet="w2",header =T)
 # write.csv(w2, "./data/weights2.csv", row.names=F)
 # w3 <- read.xls(xls = "./data/Weight_Matrices.xls", sheet="w3",header =T)
 # write.csv(w3, "./data/weights3.csv", row.names=F)
-/```
+```
 
 ```{r}
 w1 <- read.csv("./data/weights1.csv")
