@@ -11,7 +11,7 @@ Data preparation and EDA for space-time aurocorrelation analysis of network data
 
 
 #Package imports
-```{r}
+```{r Package imports}
 library(gdata) # for xls import
 library(ggplot2)
 library(dplyr)
@@ -37,7 +37,7 @@ Spatial weights matrices for the travel data are a binary scheme row standardise
 ## Data preparation
 
 Read in network aggregate travel time data (unit journey time - ujt). 
-```{r}
+```{r Read ujt data}
 ujt <- read.csv("./data/ujt.csv")
 ```
 
@@ -52,7 +52,7 @@ Get weights from .xls file and write each to a new .csv
 # write.csv(w3, "./data/weights3.csv", row.names=F)
 ```
 
-```{r}
+```{r Read spatio-temporal weights}
 w1 <- read.csv("./data/weights1.csv")
 w2 <- read.csv("./data/weights2.csv")
 w3 <- read.csv("./data/weights3.csv")
@@ -64,7 +64,7 @@ Now we need to add the dates and times that each observation was made. This is m
 Useful links > http://stackoverflow.com/questions/28587939/create-vector-of-non-weekend-time-intervals-for-part-of-a-day-in-r/28590233#28590233
 
 Create data and times
-```{r}
+```{r Create data and times}
 # create time intervals for one day - 6:00 to 21:00
 intervals <- as.character(times(72:252/288))
 
@@ -82,7 +82,7 @@ rm(dayseq)
 We can produce a time series object here to make selection of individual days possible.
 
 Create time series xts object from ujt observations and date-time POSIXct
-```{r}
+```{r Create xts with dates-times}
 ujt.ts <- xts(ujt,obstime)
 
 # look at variables
@@ -99,8 +99,8 @@ rm(obstime)
 
 We want to plot averages of time series from just one day. The xts object is not suitable for plotting these data in ggplot2. Solution: add dates and times as factors to the ujt data.frame.
 
-Add dates to ujt.ts with dates and times as factors.
-```{r}
+Create ujt data.frame with dates-times for plotting. Add dates to ujt with dates and times as factors and ujt as data.frame.
+```{r Create ujt data.frame with dates-times}
 # take date from ujt.ts xts object
 dates <- as.Date(index(ujt.ts), format="%d-%b-%Y")
 # combine with date as factor
@@ -109,7 +109,7 @@ colnames(ujt.date)[1] <- "date"
 ```
 
 Add decimal time to ujt
-```{r}
+```{r Add decimal time to ujt}
 # add decimal times for plotting
 # ref http://stackoverflow.com/questions/5186972/how-to-convert-time-mmss-to-decimal-form-in-r
 intervals.dec <- sapply(strsplit(intervals,":"),
@@ -141,7 +141,7 @@ For a selection of links (X425, X2140, X432, X1419) or X1616, X463, X1593, X2324
 1. Filter day
 2. Group by time
 3. Find means for links
-```{r}
+```{r Plot Tuesdays}
 ujt.tues <- ujt.dt %>%
   group_by(time) %>%
   filter(weekdays(as.Date(date)) %in% "Tuesday") %>%
@@ -167,7 +167,7 @@ rm(ujt.tues.g, ujt.tues)
 To compare traffic flows between midweek days.
 
 For links c("X1616", "X2085", "X432", "X1419") in 4 different facets across . 
-```{r}
+```{r Plot some links in mid-week}
 # add weekdays and get means for each time to give ujt df for links we're interested in
 ujt.wkd <- ujt.dt %>%
   mutate(day = weekdays(as.Date(date))) %>%
