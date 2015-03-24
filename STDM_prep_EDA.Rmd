@@ -73,6 +73,9 @@ dayseq <- timeBasedSeq("2010-05-24/2010-11-04/d")
 
 # concatenate date and times then format to POSIXct
 obstime<-strptime(unlist(lapply(dayseq,function(x){paste(x,intervals)})),format="%Y-%m-%d %H:%M", tz="GMT")
+
+# clean up
+rm(dayseq)
 ```
 
 ## Make unit journey time data into a time series object using xts
@@ -87,6 +90,9 @@ ujt.ts <- xts(ujt,obstime)
 
 # look at date/time portion 
 # head(index(ujt.ts))
+
+# clean up
+rm(obstime)
 ```
 
 ## Plotting
@@ -96,9 +102,9 @@ We want to plot averages of time series from just one day. The xts object is not
 Add dates to ujt.ts with dates and times as factors.
 ```{r}
 # take date from ujt.ts xts object
-d <- as.Date(index(ujt.ts), format="%d-%b-%Y")
+dates <- as.Date(index(ujt.ts), format="%d-%b-%Y")
 # combine with date as factor
-ujt.date <- cbind(as.factor(d),ujt)
+ujt.date <- cbind(as.factor(dates),ujt)
 colnames(ujt.date)[1] <- "date"
 ```
 
@@ -106,23 +112,23 @@ Add decimal time to ujt
 ```{r}
 # add decimal times for plotting
 # ref http://stackoverflow.com/questions/5186972/how-to-convert-time-mmss-to-decimal-form-in-r
-intervals.d <- sapply(strsplit(intervals,":"),
+intervals.dec <- sapply(strsplit(intervals,":"),
                       function(x) {
                         x <- as.numeric(x)
                         x[1]+x[2]/60
                       })
 
 # for decimal times repeat intervals for every day in time series
-a <- rep(intervals.d,166)
-# head(a,190)
+intervals.rep <- rep(intervals.dec,166)
+# head(intervals.rep,190)
 
 # combine with time as factor
-ujt.datetime <- cbind(a,ujt.date)
-colnames(ujt.datetime)[1] <- "time"
-# head(ujt.datetime)
+ujt.dt <- cbind(intervals.rep,ujt.date)
+colnames(ujt.dt)[1] <- "time"
+# head(ujt.dt)
 
 # clean up
-rm(obstime, intervals, a, d, ujt.date, intervals.d, dayseq)
+rm(obstime, intervals, intervals.rep, dates, ujt.date, intervals.dec, dayseq)
 ```
 
 ## Picking weekdays
@@ -136,7 +142,7 @@ For a selection of links (X425, X2140, X432, X1419) or X1616, X463, X1593, X2324
 2. Group by time
 3. Find means for links
 ```{r}
-ujt.tues.m <- ujt.datetime %>%
+ujt.tues <- ujt.dt %>%
   group_by(time) %>%
   filter(weekdays(as.Date(date)) %in% "Tuesday") %>%
   summarise_each(funs(mean)) %>%
@@ -144,17 +150,17 @@ ujt.tues.m <- ujt.datetime %>%
 # checked for number of inputs to each mean by using summarise_each(func(mean,n())
 
 # gather data for plotting
-ujt.tues.m.g <- ujt.tues.m %>% gather(link, ujt_mean, -time)
+ujt.tues.g <- ujt.tues %>% gather(link, ujt_mean, -time)
 
 # plot mean speed for 
 # 1 metre/second = 2.23694 miles per hour ref google (1/ujt_mean*2.23694)
-ggplot(ujt.tues.m.g, aes(x=time, y=1/ujt_mean*2.23694, colour=link, group=link)) + 
+ggplot(ujt.tues.g, aes(x=time, y=1/ujt_mean*2.23694, colour=link, group=link)) + 
   scale_x_continuous(limits=c(6,21), breaks=6:21) +
   scale_y_continuous(limits=c(0,15)) +
   labs(title="Variation in mean traffic speed for Tuesdays", x="Time of day (hour)", y="Mean journey speed (miles/hour)") +
   geom_line()
 
-# rm(ujt.tues.m.g, ujt.tues.m)
+rm(ujt.tues.g, ujt.tues)
 ```
 
 ### Plot Tuesdays, Wednesdays, and Thursdays 
@@ -163,7 +169,7 @@ To compare traffic flows between midweek days.
 For links c("X1616", "X2085", "X432", "X1419") in 4 different facets across . 
 ```{r}
 # add weekdays and get means for each time to give ujt df for links we're interested in
-ujt.wkd <- ujt.datetime %>%
+ujt.wkd <- ujt.dt %>%
   mutate(day = weekdays(as.Date(date))) %>%
   group_by(time, day) %>%
   summarise_each(funs(mean)) %>%
