@@ -1,0 +1,83 @@
+---
+title: "STDM - exploratory autocorrelation analysis"
+author: "Mark Ruddy"
+date: "24 March 2015"
+output: html_document
+---
+
+# Exploratory autocorrelation analysis
+
+STDM coursework - appropriate ST-ACF and ST-PACF
+
+## Imports
+### Packages and functions.
+```{r}
+library(gdata) # for xls import
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(zoo)
+library(xts)
+library(chron)
+
+source("./functions/starima_package.R") # STARIMA functions from UCL
+```
+
+### Data
+
+Spatial weights and unit journey time datasets.
+
+```{r}
+load("./data/STDM_base.RData")
+```
+
+## ST-ACF: Space-time autocorrelation function
+
+Investigate spatio-temporal correlation at spatial orders 1,2 and 3. This uses weights matrices w1, w2 and w3.
+
+We need to: 
+1. Investigate patterns in the space-time data.
+2. Describe patterns found.
+3. Present them as plots.
+
+Autocorrelation structures can be investigated for single days across the whole day and for time-periods within the day too. The AM peak (7:00 to 10:00), Interpeak (10:00 to 16:00), and PM peak (16:00 to 19:00).
+
+The observations and weights matrices need to be as matrix format for the UCL STARIMA functions.
+
+
+### For Wednesday AM
+```{r}
+# w1 weights as matrix, also removing 1st column to make symmetrical matrix
+w1.m <- as.matrix(w1[,-1])
+
+# ujt from Wednesdays only 
+ujt.wed.am <- ujt.dt %>%
+  filter(weekdays(as.Date(date)) %in% "Wednesday", time<10) %>%
+  #View()
+  select(-(time:date))
+
+# needs to be matrix for 
+ujt.wed.am <- as.matrix(ujt.wed.am)
+
+# ACF analysis
+stacf(ujt.wed.am, w1.m, 100)
+# this gives a lag at 48
+# there are 1152 records which agrees with Alex
+
+# Differencing 
+ujt.wed.am.diff <- diff(ujt.wed.am, lag=48, differences=1)
+
+stpacf(ujt.wed.am.diff, w1.m, 10)
+```
+
+
+
+
+
+
+
+
+
+
+
+
