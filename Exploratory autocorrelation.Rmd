@@ -37,6 +37,7 @@ Investigate spatio-temporal correlation at spatial orders 1,2 and 3. This uses w
 
 We need to: 
 1. Investigate patterns in the space-time data.
+  * use ST-ACF at spatial orders 1,2 and 3
 2. Describe patterns found.
 3. Present them as plots.
 
@@ -60,14 +61,26 @@ ujt.wed.am <- ujt.dt %>%
 ujt.wed.am <- as.matrix(ujt.wed.am)
 
 # ACF analysis
-stacf(ujt.wed.am, w1.m, 100)
-# this gives a lag at 48
+stacf(ujt.wed.am, w1.m, 182)
+# this indicates a lag at 48
 # there are 1152 records which agrees with Alex
 
-# Differencing 
-ujt.wed.am.diff <- diff(ujt.wed.am, lag=48, differences=1)
 
+
+# Differencing using lag of 48
+ujt.wed.am.diff <- diff(ujt.wed.am, lag=48, differences=1)
+# this gives a differenced dataset where hisotic links have unit journey times of zero
+
+# Try stacf usig differenced ujt data
+stacf(ujt.wed.am.diff, w1.m, 100)
+# because historic links in ujt.wed.am.diff are zero the covariances cannot be computed
+
+# Modified stacf() - no plotting
+#st.acf <- stacf2(ujt.wed.am.diff, w1.m, 100)
+
+# partial acf on differenced ujt data
 stpacf(ujt.wed.am.diff, w1.m, 10)
+
 ```
 
 
