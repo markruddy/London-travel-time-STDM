@@ -22,6 +22,7 @@ Try for one link first
 library(ggplot2)
 library(dplyr)
 library(tidyr)
+library(grid)
 ```
 
 ### Data
@@ -32,27 +33,57 @@ Spatial weights and unit journey time datasets.
 load("./data/STDM_base.RData")
 ```
 
-
-
 ## Outliers for link X2085
 
-Plot link X2085 over whole time series:
+Plot link X1447 over whole time series:
 
-```{r}
 
-p <- ggplot(ujt.dt, aes(x=time, y=X2085))
+```{r outlier examination for all links}
+ujt.wed <- ujt.dt %>%
+  filter(weekdays(as.Date(date)) %in% "Wednesday") %>%
+  select(-X1384, -X2007, -X2140, -X2301)
+  #View()
 
-p + geom_point(alpha=0.3) 
-  + geom_text(aes(label=ifelse((X2085>20*IQR(X2085)),row_number(X2085),"")), size=4, hjust=1.1)
+ujt.g <- ujt.wed %>% gather(link, ujt, -dtime:-date)
 
-ujt.dt %>% 
-  select(time, date, X2085) %>%
-  filter(X2085>20*IQR(X2085)) %>%
-  View()
+p <- ggplot(ujt.g, aes(x=dtime, y=ujt))
+
+p + 
+  geom_point(alpha=0.5, size=0.8) +
+  facet_wrap(~ link, ncol=3, scales="fixed") +
+  scale_x_continuous(limits=c(6,21), breaks=6:21) + 
+  labs(title="Unit journey times", x="Time of day", y="Unit Journey Time (seconds/metre)")
+# Unit journey times for links (excluding links with historic data).
+
+#rm(p, ujt.wed, ujt.g)
 ```
 
+Examine a few links in detail for outlier
+```{r outlier examination in X474}
+u <- ujt.g %>% filter(link=="X474")
+olimit <- 8*IQR(u$ujt)
+p <- ggplot(u, aes(x=dtime, y=ujt))
+p + geom_point(alpha=0.4, colour="darkgreen") +
+  geom_segment(aes(x=6, xend=10, y=max(ujt)*1.1, yend=max(ujt)*1.1), colour="grey20", size=1, arrow=arrow(ends="both", angle=90,length=unit(0.2, "cm"))) +
+  geom_segment(aes(x=10, xend=16, y=max(ujt)*1.1, yend=max(ujt)*1.1), colour="grey20", size=1, arrow=arrow(ends="both", angle=90,length=unit(0.2, "cm"))) +
+  geom_segment(aes(x=16, xend=21, y=max(ujt)*1.1, yend=max(ujt)*1.1), colour="grey20", size=1, arrow=arrow(ends="both", angle=90,length=unit(0.2, "cm"))) +
+  #geom_text(aes(label=ifelse((ujt>olimit), paste(date," ", u$time),"")), size=3, hjust=1.1) + 
+  labs(title="Unit journey times for link X474", x="Time of day", y="Unit Journey Time (seconds/metre)") +
+  geom_line(aes(x=dtime[date=="2010-05-26"], y=ujt[date=="2010-05-26"]), colour="grey30", size=0.8) + 
+  scale_x_continuous(limits=c(6,21), breaks=6:21) 
+  
+  
+# alternative label with paste(date,"\n",ujt.dt$time)
+#, arrow=arrow(ends="both", angle=90
+# view data to double check
+ujt.dt %>% 
+  select(time, date, X474) %>%
+  filter(X447>olimit) %>%
+  View()
 
-
+# clean up
+rm(olimit, p)
+```
 
 
 
