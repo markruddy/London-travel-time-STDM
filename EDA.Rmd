@@ -1,0 +1,119 @@
+---
+title: "London vehicle travel time STDM: EDA"
+author: "Mark Ruddy"
+date: "24 March 2015"
+output: html_document
+---
+
+# Description
+
+Data preparation for space-time aurocorrelation analysis of network data for London motor vehicle travel time analysis.
+
+# Imports
+## Packages
+```{r Package imports}
+library(gdata) # for xls import
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+#library(zoo)
+library(xts)
+#library(lubridate)
+library(chron)
+```
+
+## Datasets
+```{r}
+load("./data/STDM_base.RData")
+```
+
+
+# Time series averages from single days
+
+We want to plot averages of time series from just one day.
+
+## Picking weekdays
+
+Tuesday, Wednesdays or Thursdays are assumed to be generally representative of traffic flows. Aim: to extract time series only for midweek days and plot for specific links to determine whether all midweek days are comparable and to contrast with Mondays, Fridays and Weekends.
+
+### Plot Tuesdays 
+
+For a selection of links (X425, X2140, X432, X1419) or X1616, X463, X1593, X2324 which correspond with Cheng et al 2011.
+1. Filter day
+2. Group by time
+3. Find means for links
+```{r Plot Tuesdays, fig.width=12}
+ujt.tues <- ujt.dt %>%
+  group_by(time) %>%
+  filter(weekdays(as.Date(date)) %in% "Tuesday") %>%
+  summarise_each(funs(mean)) %>%
+  select(time, X1616, X463, X1593, X2324)
+# checked for number of inputs to each mean by using summarise_each(func(mean,n())
+
+# gather data for plotting
+ujt.tues.g <- ujt.tues %>% gather(link, ujt_mean, -time)
+
+# plot mean speed for 
+# 1 metre/second = 2.23694 miles per hour ref google (1/ujt_mean*2.23694)
+ggplot(ujt.tues.g, aes(x=time, y=1/ujt_mean*2.23694, colour=link, group=link)) + 
+  scale_x_continuous(limits=c(6,21), breaks=6:21) +
+  scale_y_continuous(limits=c(0,15)) +
+  labs(title="Variation in mean traffic speed for Tuesdays", x="Time of day (hour)", y="Mean journey speed (miles/hour)") +
+  geom_line()
+
+rm(ujt.tues.g, ujt.tues)
+```
+
+### Plot Tuesdays, Wednesdays, and Thursdays 
+To compare traffic flows between midweek days.
+
+For links c("X1616", "X2085", "X432", "X1419") in 4 different facets across . 
+```{r Plot some links in mid-week, fig.width=12, fig.height=10}
+# add weekdays and get means for each time to give ujt df for links we're interested in
+ujt.wkd <- ujt.dt %>%
+  mutate(day = weekdays(as.Date(date))) %>%
+  group_by(time, day) %>%
+  summarise_each(funs(mean)) %>%
+  select(time, day, X425, X2085, X432, X1419, X463, X1593)
+
+# tidy data
+ujt.wkd.g <- ujt.wkd %>% gather(link, mean, -time:-day)
+
+p <- ggplot(ujt.wkd.g, aes(x=time, y=mean, colour=day))
+
+p + geom_line() + 
+  facet_wrap(~ link, nrow=3, scales="free_y") +
+  scale_x_continuous(limits=c(6,21), breaks=6:21) +
+  #scale_y_continuous(limits=c(0.05,0.35)) +
+  labs(title="Average unit journey time profiles", x="Time of day (hour)", y="Mean unit journey time (seconds/metre)")
+
+rm(p,ujt.wkd, ujt.wkd.g)
+```
+
+Plot of historical Link data
+```{r}
+# add weekdays and get means for each time to give ujt df for links we're interested in
+ujt.wkd.hist <- ujt.dt %>%
+  mutate(day = weekdays(as.Date(date))) %>%
+  group_by(time, day) %>%
+  summarise_each(funs(mean)) %>%
+  select(time, day, X1384, X2007, X2140, X2301)
+
+ujt.wkd.hist.g <- ujt.wkd.hist %>% gather(link, mean, -time:-day)
+
+p <- ggplot(ujt.wkd.hist.g, aes(x=time, y=mean, colour=day))
+
+p + geom_line() + 
+  facet_wrap(~ link, nrow=3, scales="free_y") +
+  scale_x_continuous(limits=c(6,21), breaks=6:21) +
+  #scale_y_continuous(limits=c(0.05,0.35)) +
+  labs(title="Average unit journey time profiles for historical links", x="Time of day (hour)", y="Mean unit journey time (seconds/metre)")
+
+# clean up
+rm(p, ujt.wkd.hist, ujt.wkd.hist.g)
+```
+
+
+
+
+

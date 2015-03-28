@@ -1,0 +1,73 @@
+---
+title: "Outlier detection"
+author: "Mark Ruddy"
+date: "27 March 2015"
+output: html_document
+---
+
+# Description
+
+Outlier detection from ujt dataset.
+
+Approach is initial visual inspection of individual journey times for each link.
+
+Scatterplot of times per link throughout time series.
+
+Try for one link first
+
+
+## Imports
+### Packages and functions.
+```{r}
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+```
+
+### Data
+
+Spatial weights and unit journey time datasets.
+
+```{r}
+load("./data/STDM_base.RData")
+```
+
+
+
+## Outliers for link X2085
+
+Plot link X2085 over whole time series:
+
+```{r}
+
+p <- ggplot(ujt.dt, aes(x=time, y=X2085))
+
+p + geom_point(alpha=0.3) 
+  + geom_text(aes(label=ifelse((X2085>20*IQR(X2085)),row_number(X2085),"")), size=4, hjust=1.1)
+
+ujt.dt %>% 
+  select(time, date, X2085) %>%
+  filter(X2085>20*IQR(X2085)) %>%
+  View()
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
