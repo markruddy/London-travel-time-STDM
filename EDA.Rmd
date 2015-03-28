@@ -44,18 +44,18 @@ For a selection of links (X425, X2140, X432, X1419) or X1616, X463, X1593, X2324
 3. Find means for links
 ```{r Plot Tuesdays, fig.width=12}
 ujt.tues <- ujt.dt %>%
-  group_by(time) %>%
+  group_by(dtime) %>%
   filter(weekdays(as.Date(date)) %in% "Tuesday") %>%
   summarise_each(funs(mean)) %>%
-  select(time, X1616, X463, X1593, X2324)
+  select(dtime, X1616, X463, X1593, X2324)
 # checked for number of inputs to each mean by using summarise_each(func(mean,n())
 
 # gather data for plotting
-ujt.tues.g <- ujt.tues %>% gather(link, ujt_mean, -time)
+ujt.tues.g <- ujt.tues %>% gather(link, ujt_mean, -dtime)
 
 # plot mean speed for 
 # 1 metre/second = 2.23694 miles per hour ref google (1/ujt_mean*2.23694)
-ggplot(ujt.tues.g, aes(x=time, y=1/ujt_mean*2.23694, colour=link, group=link)) + 
+ggplot(ujt.tues.g, aes(x=dtime, y=1/ujt_mean*2.23694, colour=link, group=link)) + 
   scale_x_continuous(limits=c(6,21), breaks=6:21) +
   scale_y_continuous(limits=c(0,15)) +
   labs(title="Variation in mean traffic speed for Tuesdays", x="Time of day (hour)", y="Mean journey speed (miles/hour)") +
@@ -72,14 +72,14 @@ For links c("X1616", "X2085", "X432", "X1419") in 4 different facets across .
 # add weekdays and get means for each time to give ujt df for links we're interested in
 ujt.wkd <- ujt.dt %>%
   mutate(day = weekdays(as.Date(date))) %>%
-  group_by(time, day) %>%
+  group_by(dtime, day) %>%
   summarise_each(funs(mean)) %>%
-  select(time, day, X425, X2085, X432, X1419, X463, X1593)
+  select(dtime, day, X425, X2085, X432, X1419, X463, X1593)
 
 # tidy data
-ujt.wkd.g <- ujt.wkd %>% gather(link, mean, -time:-day)
+ujt.wkd.g <- ujt.wkd %>% gather(link, mean, -dtime:-day)
 
-p <- ggplot(ujt.wkd.g, aes(x=time, y=mean, colour=day))
+p <- ggplot(ujt.wkd.g, aes(x=dtime, y=mean, colour=day))
 
 p + geom_line() + 
   facet_wrap(~ link, nrow=3, scales="free_y") +
@@ -95,13 +95,13 @@ Plot of historical Link data
 # add weekdays and get means for each time to give ujt df for links we're interested in
 ujt.wkd.hist <- ujt.dt %>%
   mutate(day = weekdays(as.Date(date))) %>%
-  group_by(time, day) %>%
+  group_by(dtime, day) %>%
   summarise_each(funs(mean)) %>%
-  select(time, day, X1384, X2007, X2140, X2301)
+  select(dtime, day, X1384, X2007, X2140, X2301)
 
-ujt.wkd.hist.g <- ujt.wkd.hist %>% gather(link, mean, -time:-day)
+ujt.wkd.hist.g <- ujt.wkd.hist %>% gather(link, mean, -dtime:-day)
 
-p <- ggplot(ujt.wkd.hist.g, aes(x=time, y=mean, colour=day))
+p <- ggplot(ujt.wkd.hist.g, aes(x=dtime, y=mean, colour=day))
 
 p + geom_line() + 
   facet_wrap(~ link, nrow=3, scales="free_y") +

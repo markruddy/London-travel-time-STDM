@@ -53,9 +53,9 @@ w1.m <- as.matrix(w1[,-1])
 
 # ujt from Wednesdays only 
 ujt.wed.am <- ujt.dt %>%
-  filter(weekdays(as.Date(date)) %in% "Wednesday", time<10) %>%
+  filter(weekdays(as.Date(date)) %in% "Wednesday", dtime<10) %>%
   #View()
-  select(-(time:date))
+  select(-(dtime:date))
 
 # needs to be matrix for 
 ujt.wed.am <- as.matrix(ujt.wed.am)
