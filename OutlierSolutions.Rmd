@@ -1,0 +1,14 @@
+---
+title: "Outlier solutions"
+author: "Mark Ruddy"
+date: "29 March 2015"
+output: html_document
+---
+
+# Description
+
+How to approach removing outlier ujts. There are a number of days where congestion is increased for certain links. 
+
+
+
+For these days within each link the dataset can be replaced by within-unit average values.
