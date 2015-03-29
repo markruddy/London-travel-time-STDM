@@ -1,0 +1,50 @@
+---
+title: "Historic data"
+author: "Mark Ruddy"
+date: "29 March 2015"
+output: html_document
+---
+
+# Description
+
+Links X1384, X2007, X2140, and X2301 are represented by historic data in the form of repeated weekly averages for these links. Identical UJT observations between weeks for these links are not only unrealistic but will result in problems later in analysis when differencing is attempted.
+
+Links X1384 and X2140 share a common edge and 2140 shares an edge with link X425. Links X2007 and X2301 share a common edge and lie inbetween links X1025 and X1616 (with edges shared between X2007 and X1616, and X2301 and X1025).
+
+One solution is to add white noise to the time series of each link.
+The parameters of the white noise can be inferred from non-historic links that share edges with historic links.
+So find variances for AMP, IP and PMP for the following links:
+
+X1025 and X1616
+Links X2007 and X2301 share a common edge and lie between links X1025 and X1616.
+```{r EDA for links }
+
+ujt.wed %>%
+  select(dtime, time, date, X1025, X1616) %>%
+  mutate(period = ifelse(dtime < 10, "AMP", ifelse(dtime >= 16, "PMP", "IP"))) %>%
+  gather(link, ujt, -period, -dtime:-date) %>%
+  group_by(link, period) %>%
+  summarise(var=var(ujt)) %>%
+  View()
+  
+  
+  
+```
+
+X425
+Links X1384 and X2140 share an edge, and link X2140 shares an edge with link X425.
+```{r EDA for link X425}
+ujt.wed %>%
+  select(dtime, time, date, X425) %>%
+  mutate(period = ifelse(dtime < 10, "AMP", ifelse(dtime >= 16, "PMP", "IP"))) %>%
+  group_by(period) %>%
+  summarise(var=var(X425)) %>%
+  View()
+  
+```
+
+
+
+
+
+
