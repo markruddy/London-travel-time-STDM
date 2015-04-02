@@ -39,7 +39,7 @@ Plot link X1447 over whole time series:
 
 
 ```{r outlier examination for all links}
-ujt.wed <- ujt.dt %>%
+u.w <- ujt.dt %>%
   filter(weekdays(as.Date(date)) %in% "Wednesday") %>%
   select(-X1384, -X2007, -X2140, -X2301)
   #View()
@@ -87,13 +87,13 @@ p + geom_point(alpha=0.5, colour="green4", size=2) +
   annotate(geom="text", x=8, y=max(u$ujt)*.8, label="2010-09-08", hjust=-0.1)
 
 # clean up
-rm(olimit, p)
+rm(u, p)
 ```
 
 Examine a few links in detail for outliers
 ```{r outlier examination in X425}
 u <- ujt.g %>% filter(link=="X425")
-olimit <- 8*IQR(u$ujt)
+olimit <- 10*IQR(u$ujt)
 p <- ggplot(u, aes(x=dtime, y=ujt))
 p + geom_point(alpha=0.4, colour="green4", size=2) +
   theme(panel.grid.minor=element_blank()) +
@@ -102,18 +102,21 @@ p + geom_point(alpha=0.4, colour="green4", size=2) +
   annotate("text", x=8, y= -0.05, label= "AMP") +
   annotate("text", x=13, y=-0.05, label= "IP") +
   annotate("text", x=18.5, y=-0.05, label= "PMP") +
-  #geom_text(aes(label=ifelse((ujt>olimit), paste(date),"")), size=3, hjust=1.1) + 
+  geom_text(aes(label=ifelse((ujt>olimit), paste(date),"")), size=3, hjust=1.1) + 
   labs(title="Unit journey times for link X425", x="Time of day", y="Unit Journey Time (seconds/metre)") +
   geom_line(aes(x=dtime[date=="2010-05-26"], y=ujt[date=="2010-05-26"]), colour="grey10", size=0.5) + 
   geom_line(aes(x=dtime[date=="2010-07-21"], y=ujt[date=="2010-07-21"]), colour="grey10", size=0.5, linetype = 2) + 
   geom_line(aes(x=dtime[date=="2010-07-28"], y=ujt[date=="2010-07-28"]), colour="grey10", size=0.5, linetype = 4) + 
+  #geom_line(aes(x=dtime[date=="2010-10-20"], y=ujt[date=="2010-10-20"]), colour="grey10", size=0.5, linetype = 5) + 
   scale_x_continuous(limits=c(6,21), breaks=6:21) +
   annotate(geom="segment", x=17, xend=18.5, y=max(u$ujt), yend=max(u$ujt)) +
   annotate(geom="text", x=19, y=max(u$ujt), label="2010-05-26", hjust=-0.1) +
   annotate(geom="segment", x=17, xend=18.5, y=max(u$ujt)*.9, yend=max(u$ujt)*.9, linetype=2) +
   annotate(geom="text", x=19, y=max(u$ujt)*.9, label="2010-07-21", hjust=-0.1) +
   annotate(geom="segment", x=17, xend=18.5, y=max(u$ujt)*.8, yend=max(u$ujt)*.8, linetype=4) +
-  annotate(geom="text", x=19, y=max(u$ujt)*.8, label="2010-07-28", hjust=-0.1)
+  annotate(geom="text", x=19, y=max(u$ujt)*.8, label="2010-07-28", hjust=-0.1) 
+  annotate(geom="segment", x=17, xend=18.5, y=max(u$ujt)*.7, yend=max(u$ujt)*.7, linetype=5) +
+  #annotate(geom="text", x=19, y=max(u$ujt)*.7, label="2010-10-20", hjust=-0.1)
 
 # clean up
 rm(olimit, p)
@@ -122,7 +125,7 @@ rm(olimit, p)
 Examine a few links in detail for outliers
 ```{r outlier examination in X1447}
 u <- ujt.g %>% filter(link=="X1447")
-olimit <- 8*IQR(u$ujt)
+olimit <- 10*IQR(u$ujt)
 p <- ggplot(u, aes(x=dtime, y=ujt))
 p + geom_point(alpha=0.4, colour="green4", size=2) +
   theme(panel.grid.minor=element_blank()) +
@@ -131,7 +134,7 @@ p + geom_point(alpha=0.4, colour="green4", size=2) +
   annotate("text", x=8, y= -0.05, label= "AMP") +
   annotate("text", x=13, y=-0.05, label= "IP") +
   annotate("text", x=18.5, y=-0.05, label= "PMP") +
-  #geom_text(aes(label=ifelse((ujt>olimit), paste(date),"")), size=3, hjust=1.1) + 
+  geom_text(aes(label=ifelse((ujt>olimit), paste(date),"")), size=3, hjust=1.1) + 
   labs(title="Unit journey times for link X1447", x="Time of day", y="Unit Journey Time (seconds/metre)") +
   geom_line(aes(x=dtime[date=="2010-05-26"], y=ujt[date=="2010-05-26"]), colour="grey10", size=0.5) + 
   scale_x_continuous(limits=c(6,21), breaks=6:21) +
@@ -267,12 +270,13 @@ p +
   annotate("text", x=8, y= -0.05, label= "AMP") +
   annotate("text", x=13, y=-0.05, label= "IP") +
   annotate("text", x=18.5, y=-0.05, label= "PMP") +
-  #geom_text(aes(label=ifelse((ujt>olimit), paste(date),"")), size=3, hjust=1.1) + 
+  geom_text(aes(label=ifelse((ujt>olimit), paste(date),"")), size=3, hjust=1.1) + 
   labs(title="Unit journey times for link X2079", x="Time of day", y="Unit Journey Time (seconds/metre)") +
   geom_line(aes(x=dtime[date=="2010-05-26"], y=ujt[date=="2010-05-26"]), colour="grey10", size=0.5) + 
-  geom_line(aes(x=dtime[date=="2010-07-28"], y=ujt[date=="2010-07-28"]), colour="grey10", size=0.5, linetype=3) +
-  geom_line(aes(x=dtime[date=="2010-09-01"], y=ujt[date=="2010-09-01"]), colour="grey10", size=0.5, linetype=5) + 
-  #geom_line(aes(x=dtime[date=="2010-09-15"], y=ujt[date=="2010-09-15"]), colour="grey10", size=0.5, linetype=5) + 
+  #geom_line(aes(x=dtime[date=="2010-07-14"], y=ujt[date=="2010-07-14"]), colour="grey10", size=0.5, linetype=2) +
+  #geom_line(aes(x=dtime[date=="2010-09-01"], y=ujt[date=="2010-09-01"]), colour="grey10", size=0.5, linetype=3) + 
+  #geom_line(aes(x=dtime[date=="2010-09-15"], y=ujt[date=="2010-09-15"]), colour="grey10", size=0.5, linetype=4) + 
+  #geom_line(aes(x=dtime[date=="2010-10-20"], y=ujt[date=="2010-10-20"]), colour="grey10", size=0.5, linetype=5) + 
   scale_x_continuous(limits=c(6,21), breaks=6:21) 
 
 # clean up
@@ -283,7 +287,7 @@ rm(olimit, p)
 Examine a few links in detail for outliers
 ```{r outlier examination in X2085}
 u <- ujt.g %>% filter(link=="X2085")
-olimit <- 7*IQR(u$ujt)
+olimit <- 15*IQR(u$ujt)
 p <- ggplot(u, aes(x=dtime, y=ujt))
 p + 
   geom_point(alpha=0.4, colour="green4", size=2) +
@@ -298,14 +302,40 @@ p +
   geom_line(aes(x=dtime[date=="2010-07-21"], y=ujt[date=="2010-07-21"]), colour="grey10", size=0.5) +
   #geom_line(aes(x=dtime[date=="2010-06-30"], y=ujt[date=="2010-06-30"]), colour="grey10", size=0.5, linetype=3) + 
   #geom_line(aes(x=dtime[date=="2010-09-29"], y=ujt[date=="2010-09-29"]), colour="grey10", size=0.5, linetype=5) + 
-  scale_x_continuous(limits=c(6,21), breaks=6:21) 
+  scale_x_continuous(limits=c(6,21), breaks=6:21) +
+  annotate(geom="segment", x=17, xend=18.5, y=max(u$ujt), yend=max(u$ujt)) +
+  annotate(geom="text", x=19, y=max(u$ujt), label="2010-07-21", hjust=-0.1)
 
 # clean up
 rm(olimit, p)
 ```
 
 
+Examine a few links in detail for outliers
+```{r outlier examination in X463}
+u <- ujt.g %>% filter(link=="X463")
+olimit <- 7*IQR(u$ujt)
+p <- ggplot(u, aes(x=dtime, y=ujt))
+p + 
+  geom_point(alpha=0.4, colour="green4", size=2) +
+  theme(panel.grid.minor=element_blank()) +
+  geom_vline(xintercept=10, colour="grey50", size=1) +
+  geom_vline(xintercept=16, colour="grey50", size=1) +
+  annotate("text", x=8, y= -0.05, label= "AMP") +
+  annotate("text", x=13, y=-0.05, label= "IP") +
+  annotate("text", x=18.5, y=-0.05, label= "PMP") +
+  geom_text(aes(label=ifelse((ujt>olimit), paste(date),"")), size=3, hjust=1.1) + 
+  labs(title="Unit journey times for link X463", x="Time of day", y="Unit Journey Time (seconds/metre)") +
+  geom_line(aes(x=dtime[date=="2010-05-26"], y=ujt[date=="2010-07-21"]), colour="grey10", size=0.5) +
+  #geom_line(aes(x=dtime[date=="2010-06-30"], y=ujt[date=="2010-06-30"]), colour="grey10", size=0.5, linetype=3) + 
+  #geom_line(aes(x=dtime[date=="2010-09-29"], y=ujt[date=="2010-09-29"]), colour="grey10", size=0.5, linetype=5) + 
+  scale_x_continuous(limits=c(6,21), breaks=6:21) +
+  annotate(geom="segment", x=17, xend=18.5, y=max(u$ujt), yend=max(u$ujt)) +
+  annotate(geom="text", x=19, y=max(u$ujt), label="2010-07-21", hjust=-0.1)
 
+# clean up
+rm(olimit, p)
+```
 
 
 

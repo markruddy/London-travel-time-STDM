@@ -5,6 +5,15 @@ date: "29 March 2015"
 output: html_document
 ---
 
+# Imports
+## Packages and functions.
+```{r}
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(grid) # for arrows
+```
+
 # Description
 
 Links X1384, X2007, X2140, and X2301 are represented by historic data in the form of repeated weekly averages for these links. Identical UJT observations between weeks for these links are not only unrealistic but will result in problems later in analysis when differencing is attempted.
@@ -13,38 +22,40 @@ Links X1384 and X2140 share a common edge and 2140 shares an edge with link X425
 
 One solution is to add white noise to the time series of each link.
 The parameters of the white noise can be inferred from non-historic links that share edges with historic links.
-So find variances for AMP, IP and PMP for the following links:
+So find sds for AMP, IP and PMP for the following links:
 
-X1025 and X1616
+X425, X1025 and X1616
+Links X1384 and X2140 share an edge, and link X2140 shares an edge with link X425.
 Links X2007 and X2301 share a common edge and lie between links X1025 and X1616.
-```{r EDA for links }
 
-ujt.wed %>%
-  select(dtime, time, date, X1025, X1616) %>%
+```{r SDs for links X425, X1025 and X1616}
+
+h.sds <- u.w %>%
+  select(dtime, time, date, X1025, X1616, X425) %>%
   mutate(period = ifelse(dtime < 10, "AMP", ifelse(dtime >= 16, "PMP", "IP"))) %>%
   gather(link, ujt, -period, -dtime:-date) %>%
   group_by(link, period) %>%
-  summarise(var=var(ujt)) %>%
-  View()
-  
-  
-  
+  summarise(sd=sd(ujt))
 ```
 
-X425
-Links X1384 and X2140 share an edge, and link X2140 shares an edge with link X425.
-```{r EDA for link X425}
-ujt.wed %>%
-  select(dtime, time, date, X425) %>%
-  mutate(period = ifelse(dtime < 10, "AMP", ifelse(dtime >= 16, "PMP", "IP"))) %>%
-  group_by(period) %>%
-  summarise(var=var(X425)) %>%
-  View()
-  
+Approach:
+1. Take one historic link week
+2. Repeat to length time series
+2. Add rnorm with sd from each period for each link to time series
+3. Replace historic link data with randomised historic link data
+
+Apply sds to historic links
+```{r Apply sds to historic links}
+# historic links
+names <- list( c("X1384","X425"), c("X2140","X425"), c("X2301","X1025"), c("X2007", "X1616") )
+
+# long format dataset (links as columns)
+u.w.rep.long <- u.w.rep %>% 
+  spread(link, ujt) %>%
+  arrange(date, dtime)
+
+source("./functions/hist_rand.R")
+
+x <- hist_rand(u.w.rep.long, links)
+
 ```
-
-
-
-
-
-

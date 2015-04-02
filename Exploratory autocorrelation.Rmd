@@ -31,6 +31,7 @@ Spatial weights and unit journey time datasets.
 load("./data/STDM_base.RData")
 ```
 
+
 ## ST-ACF: Space-time autocorrelation function
 
 Investigate spatio-temporal correlation at spatial orders 1,2 and 3. This uses weights matrices w1, w2 and w3.
@@ -45,27 +46,70 @@ Autocorrelation structures can be investigated for single days across the whole 
 
 The observations and weights matrices need to be as matrix format for the UCL STARIMA functions.
 
+### Outliers 
+
+How much, if any, effect does their removal have on ST analyses? We can test this through EDA on original dataset and dataset with outliers removed.
 
 ### For Wednesday AM
-```{r}
+```{r Data prep}
 # w1 weights as matrix, also removing 1st column to make symmetrical matrix
 w1.m <- as.matrix(w1[,-1])
+w2.m <- as.matrix(w2[,-1])
+w3.m <- as.matrix(w3[,-1])
 
-# ujt from Wednesdays only 
-ujt.wed.am <- ujt.dt %>%
-  filter(weekdays(as.Date(date)) %in% "Wednesday", dtime<10) %>%
-  #View()
-  select(-(dtime:date))
+# ujt from wednesdays for original data
+u.w.am <- u.w %>%
+  filter(dtime<10) %>%
+  select(-dtime:-date)
 
-# needs to be matrix for 
-ujt.wed.am <- as.matrix(ujt.wed.am)
+u.w.am <- as.matrix(u.w.am)
 
+# ujt from Wednesday AMP for outlier corrected
+u.w.rep.am <- u.w.rep %>%
+  filter(dtime<10)
+
+u.w.rep.am <- u.w.rep.am %>% 
+  spread(link, ujt) %>%
+  arrange(date, dtime) %>%
+  select(-dtime:-date)
+
+# needs to be numeric matrix 
+u.w.rep.am <- as.matrix(sapply(u.w.rep.am, as.numeric))
+```
+
+```{r stacf analyses}
 # ACF analysis
-stacf(ujt.wed.am, w1.m, 182)
-# this indicates a lag at 48
-# there are 1152 records which agrees with Alex
+# for uncorrected data
+stacf(u.w.am, w1.m, 150)
+# Lag at 48 with correlation of 0.410965214
+# CI = 0.01347053
+stacf(u.w.am, w2.m, 150)
+# Lag at 48 , corr=0.39657075
+# CI = 0.01347053
+
+stacf(u.w.am, w3.m, 150)
+# Lag at 48 0.357625112
+# CI= 0.01347053
 
 
+# for corrected data
+stacf(u.w.rep.am, w1.m, 150)
+# Lag at 48 with correlation of 0.467680378
+# CI = 0.01347053
+
+stacf(u.w.rep.am, w2.m, 150)
+# Lag at 48 corr=0.433060499
+# CI=0.01347053
+
+
+stacf(u.w.rep.am, w3.m, 150)
+# Lag at 48 corr=0.387099880
+# CI=0.01347053
+
+```
+
+
+```{r stpacf}
 
 # Differencing using lag of 48
 ujt.wed.am.diff <- diff(ujt.wed.am, lag=48, differences=1)
@@ -82,6 +126,10 @@ stacf(ujt.wed.am.diff, w1.m, 100)
 stpacf(ujt.wed.am.diff, w1.m, 10)
 
 ```
+
+
+
+
 
 
 

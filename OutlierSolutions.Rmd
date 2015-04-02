@@ -7,8 +7,107 @@ output: html_document
 
 # Description
 
-How to approach removing outlier ujts. There are a number of days where congestion is increased for certain links. 
+Qualitative outliers were identified from specific dates where UJTs were observed to be higher in a number of links. These high UJT dates can be removed from analyses and replaced with average UJT values for the link.
+
+## Imports
+
+```{r}
+# packages
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(xts)
+library(chron)
+
+# functions
+source("./functions/starima_package.R") # STARIMA functions from UCL
+
+# data
+load("./data/STDM_base.RData")
+```
 
 
+```{r Outlier selection and replacement by UJT means by link and date}
+o.dates <- c("2010-05-26", "2010-07-21", "2010-07-28", "2010-06-09", "2010-06-16", "2010-06-30", "2010-07-07", "2010-09-01", "2010-09-08", "2010-09-29") # dates with outliers
 
-For these days within each link the dataset can be replaced by within-unit average values.
+o.links <- list(c("X425", "X474", "X1447", "X1592", "X2052", "X2079"), c("X425", "X1592", "X2085"), c("X425", "X474", "X2079"), c("X524", "X1025"), "X524", "X2052", "X474", "X2079", "X474", "X2052") # links with outliers
+
+u.w <- ujt.dt %>%
+  filter(weekdays(as.Date(date)) %in% "Wednesday") # get wednesdays
+
+u.w.g <- gather(u.w, link, ujt, -dtime:-date) # tidy data
+
+source("./functions/outlier_rep.R") # function to replace outliers with link means
+
+u.w.rep <- o.rep(u.w.g, o.dates, o.links) # ujt from wednesdays replaced with means where needed
+
+# check repeats for some outlier days
+u.w.rep %>%
+  filter(link=="X425",dtime<10, date %in% c("2010-05-26","2010-07-21")) %>%
+  View()
+# clean up
+rm(o.dates, o.links, u.w.g)
+```
+
+```{r Plot outliers and averaged data}
+u.w <- ujt.dt %>%
+  filter(weekdays(as.Date(date)) %in% "Wednesday") # get wednesdays
+
+u.w.g <- gather(u.w, link, ujt, -dtime:-date) # tidy data
+
+# For link X425
+u.rep.425 <- u.w.rep %>% filter(link=="X425")
+u.425 <- u.w.g %>% filter(link=="X425")
+  
+p <- ggplot(u.rep.425, aes(x=dtime, y=ujt))
+
+p +
+  geom_point(data=u.425, aes(x=dtime, y=ujt), alpha=1, colour="green4", size=2, shape=1) +
+  geom_point(colour="dodgerblue", alpha=0.8, size=1) +
+  stat_summary(aes(x=dtime, y=ujt), data=u.425, fun.y=mean, colour="deeppink", geom= "line", size=1) +
+  stat_summary(fun.y=mean, colour="grey20", geom= "line", size=1) +
+  theme(panel.grid.minor=element_blank()) +
+  geom_vline(xintercept=10, colour="grey50", size=1) +
+  geom_vline(xintercept=16, colour="grey50", size=1) +
+  annotate("text", x=8, y= -0.05, label= "AMP") +
+  annotate("text", x=13, y=-0.05, label= "IP") +
+  annotate("text", x=18.5, y=-0.05, label= "PMP") +
+  #geom_text(aes(label=ifelse((ujt>olimit), paste(date),"")), size=3, hjust=1.1) + 
+  labs(title="Unit journey times: link X425 Wednesdays", x="Time of day", y="Unit Journey Time (seconds/metre)") +
+  scale_x_continuous(limits=c(6,21), breaks=6:21) +
+  annotate(geom="point", x=17.5, y=max(u.425$ujt), colour="green4", size=2, shape=1) +
+  annotate(geom="text", x=18.1, y=max(u.425$ujt), label="Observations with outliers", hjust=0) + 
+  annotate(geom="point", x=17.5, y=max(u.425$ujt)*0.95, colour="dodgerblue", alpha=0.8, size=1) +
+  annotate(geom="point", x=17.5, y=max(u.425$ujt)*0.95,colour="green4", size=2, shape=1) +
+  annotate(geom="text", x=18.1, y=max(u.425$ujt)*0.95, label="Observations without outliers", hjust=0) +
+   annotate(geom="segment", x=17, xend=18, y=max(u.425$ujt)*0.9, yend=max(u.425$ujt)*0.9, colour="deeppink", size=1) +
+  annotate(geom="text", x=18.1, y=max(u.425$ujt)*0.9, label="Mean with outliers", hjust=0) +
+  annotate(geom="segment", x=17, xend=18, y=max(u.425$ujt)*0.85, yend=max(u.425$ujt)*0.85, colour="grey20", size=1) +
+  annotate(geom="text", x=18.1, y=max(u.425$ujt)*0.85, label="Mean without outliers", hjust=0) 
+  
+# clean up
+rm(p, u.w, u.w.g, u.425, u.rep.425)
+```
+
+
+```{r Outlier removal test for X425}
+
+# X425 Wednesdays
+ujtw.425 <- ujt.dt %>% filter(weekdays(as.Date(date)) %in% "Wednesday") %>% select(dtime, time, date, X425)
+ujtw.425 <- ujtw.425 %>% gather(link, ujt, -dtime:-date)
+
+# no-outliers X425
+ujtw.or <- ujtw.425 %>%
+  filter(!date %in% o.dates)
+
+p <- ggplot(ujtw.or, aes(dtime, ujt))
+  
+p +
+  geom_point(data=ujtw.425, aes(x=dtime, y=ujt), colour="green4", size=2) +
+  geom_point(alpha=0.5, colour="red", size=1.5) +
+  theme(panel.grid.minor=element_blank()) +
+  stat_summary(fun.y=mean, colour="black", geom= "line", size=1.5) +
+  #geom_line(data=ujtw.425, aes(x=dtime, y=mean(ujt))) +
+  scale_x_continuous(limits=c(6,21), breaks=6:21)
+
+```

@@ -69,7 +69,8 @@ Create data and times
 ```{r dates and times for observations}
 # create time intervals for one day - 6:00 to 21:00
 t <- as.character(times(72:252/288))
-d <- timeBasedSeq("2010-05-24/2010-11-04/d")
+#d <- timeBasedSeq("2010-05-24/2010-11-04/d") Bug in timeBasedSeq gives repeated 31st Oct at Daylight Saving time
+d <- seq.Date(as.Date("2010-05-24"),as.Date("2010-11-05"), 1)
 obs.times <- rep(t, times=length(d))
 obs.dates <- sort(as.Date(rep(d, times=length(t)), format="%d-%m-%y"))
 datetimes<-strptime(paste(obs.dates,obs.times),format="%Y-%m-%d %H:%M", tz="GMT")
@@ -100,6 +101,8 @@ colnames(ujt.dt)[1] <- "dtime"
 # head(ujt.dt)
 
 # clean up
-rm(dates, ujt.date, obs.dec, t,d, obs.times, obs.dates, ujt.dates)
+rm(datetime, obs.dec, t,d, obs.times, obs.dates)
 ```
+
+
 
