@@ -1,0 +1,87 @@
+---
+title: "SVR_NoHistoric"
+author: "Mark Ruddy"
+date: "28 April 2015"
+output: html_document
+---
+
+## Setup: data, functions and packages
+
+```{r Setup: data, functions and packages}
+library(kernlab)
+library(ggplot2)
+library(grid)
+library(dplyr)
+library(tidyr)
+
+source("./functions/Kernel_methods_lib.R")
+source("./functions/trainModel.R") # train models with mutiple parameters
+source("./functions/trainTraffic.R") # train models with mutiple parameters from multiple datasets
+source("./functions/Kernel_methods_lib.R")
+  
+# datasets including spatial weights and Wednesday UJTs
+load("./data/STDM_base.RData")
+
+# rmse function
+rmse <- function(obs, pred, na.rm=TRUE) {
+  sqrt(mean((obs-pred)^2, na.rm=na.rm))
+  }
+
+# Wednesday UJTs
+t <- ujt.repl.hist
+```
+
+```{r No Historic links}
+
+# import no historic link weights matrix
+w1.nh <- read.csv("/Users/markruddy/Documents/Research/GISciPgDip/CEGEG076_SpatioTemporal/Coursework/SpatioTemporal/data/M1A.csv")
+
+w1.nh.m <- as.matrix(w1.nh[,-1])
+
+# parmaters
+C <- 2^rep(-5:-2) # 
+sigma <- 2^rep(-9:-2) # 
+epsilon <-c(0.01, 0.1, 0.5) # 
+
+# split at 3620 is 20 days of Wednesday observations (20 days * 181 5min intervals) 
+v.day.m3.nh <- trainTraffic(ujt = select(t, -dtime:-date), weights = w1.nh.m, link= c(3, 12), m = 3, C = C, epsilon = epsilon, sigma = sigma, split = 3620)
+
+
+```
+
+
+## Plot errors for X448
+Combine x448 training for all m
+```{r Combine x448 training for all m}
+v3 <- v.day.m3$X448$error_mat
+v6 <- v.day.m6$X448$error_mat
+v12 <- v.day.m12$X448$error_mat
+
+v448 <- rbind(v3, v6, v12)
+v448 <- cbind(v448, c(rep(3,nrow(v3)), rep(6,nrow(v6)), rep(12,nrow(v12))))
+colnames(v448)[8] <- "m" 
+v448 <- as.data.frame(v448)
+
+rm(v3, v6, v12)
+```
+
+Plot multi-facet of X448 for training error ~ different epsilon and m
+```{r Plot multi-facet of X448 training}
+
+p <- ggplot(v448, aes(x=factor(Sigma), y=factor(C), fill=log(TrainingError)))
+
+p + geom_tile() +
+  facet_wrap(m ~ Epsilon, ncol=3) +
+  labs(x=expression(paste("Kernel bandwidth, ", sigma)), y="Error penalisation, C") +
+  ggtitle("SVR training error - link X448 with 1st order spatial weights minus historic links") +
+  scale_fill_continuous(guide=guide_colourbar(title="log Training RMSE"), low="#000066", high="white") +
+  theme(panel.margin=unit(1,"cm"), axis.text.x=element_text(vjust=0.5,  size=10)) +
+  scale_y_discrete(breaks = c(2^rep(-5:4)), labels = c("2^-5", "2^-4", "2^-3", "2^-2", "2^-1", "1", "2^1", "2^2", "2^3", "2^4")) +
+  scale_x_discrete(breaks = c(2^rep(-10:3)), labels = c("2^-10", "2^-9", "2^-8", "2^-7", "2^-6", "2^-5", "2^-4", "2^-3", "2^-2", "2^-1", "1", "2^1", "2^2", "2^3"))
+#ggsave(filename = "./outputs/TrainError_X448.pdf",width = 15, height = 9)
+ggsave(filename = "./outputs/TrainError_X448_noHist.png",width = 15, height = 9)
+
+
+```
+
+

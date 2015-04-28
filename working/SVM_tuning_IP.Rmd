@@ -1,0 +1,194 @@
+---
+title: "SVM tuning InterPeak"
+author: "Mark Ruddy"
+date: "20 April 2015"
+output: html_document
+---
+
+# Tuning SVM model of traffic data in morning peaks
+1. Get IP data from wednesdays
+2. Train models using 1st order spatial weights
+3. Try different lengths of hsitorical data for regression (m=c(3, 6, 12): 15, 30 and 60 minutes)
+4. Choose two links for model assessment (X448, X1593)
+5. Train with 80% training data
+
+## Setup: data, functions and packages
+
+```{r Setup data, functions and packages}
+library(kernlab)
+library(ggplot2)
+library(grid)
+library(dplyr)
+library(tidyr)
+
+source("./functions/Kernel_methods_lib.R")
+source("./functions/trainModel.R") # train models with mutiple parameters
+source("./functions/trainTraffic.R") # train models with mutiple parameters from multiple datasets
+
+# datasets including spatial weights and Wednesday UJTs
+load("./data/STDM_base.RData")
+
+# rmse function
+rmse <- function(obs, pred, na.rm=TRUE) {
+  sqrt(mean((obs-pred)^2, na.rm=na.rm))
+  }
+
+# Wednesday UJTs
+t <- ujt.repl.hist
+```
+
+
+Prepare data
+```{r Prepare data}
+# weight matrices as.matrix
+w1.m <- as.matrix(w1[,-1])
+w2.m <- as.matrix(w2[,-1])
+w3.m <- as.matrix(w3[,-1])
+
+# AM UJT data (<10am)
+
+t.ip <- t %>%
+  filter(dtime>=10 & dtime<16)
+```
+
+## Train AM UJT for links X448 and X1593
+```{r Train AM UJT}
+# parmaters
+c <- 2^rep(-5:4) # 
+sig <- 2^rep(-9:2) # 
+eps <-c(0.01, 0.1, 0.5) # 
+
+# split at 1584 is 20 days of IPs (22 days * 72 5min intervals)
+v.ip.m3 <- trainTraffic(ujt = select(t.ip, -dtime:-date), weights = w1.m, link = c(3, 12), m = 3, C = c, epsilon = eps, sigma = sig, split = 1584)
+
+v.ip.m6 <- trainTraffic(ujt = select(t.ip, -dtime:-date), weights = w1.m, link = c(3, 12), m = 6, C = c, epsilon = eps, sigma = sig, split = 1584)
+
+v.ip.m12 <- trainTraffic(ujt = select(t.ip, -dtime:-date), weights = w1.m, link = c(3, 12), m = 12, C = c, epsilon = eps, sigma = sig, split = 1584)
+
+```
+
+## Plot errors for X448
+Combine x448 training for all m
+```{r Combine x448 training for all m}
+v3 <- v.ip.m3$X448$error_mat
+v6 <- v.ip.m6$X448$error_mat
+v12 <- v.ip.m12$X448$error_mat
+
+v448ip <- rbind(v3, v6, v12)
+v448ip <- cbind(v448ip, c(rep(3,nrow(v3)), rep(6,nrow(v6)), rep(12,nrow(v12))))
+colnames(v448ip)[8] <- "m" 
+v448ip <- as.data.frame(v448ip)
+
+rm(v3, v6, v12)
+```
+
+Plot multi-facet of X448 for training error ~ different epsilon and m
+```{r Plot multi-facet of X448 training}
+
+p <- ggplot(v448ip, aes(x=factor(Sigma), y=factor(C), fill=TrainingError))
+
+p + geom_tile() +
+  facet_wrap(m ~ Epsilon, ncol=3) +
+  labs(x=expression(paste("Kernel bandwidth, ", sigma)), y="Error penalisation, C") +
+  ggtitle("SVR training error - link X448 IP with 1st order spatial weights") +
+  scale_fill_continuous(guide=guide_colourbar(title="Training RMSE"), low="#000066", high="white") +
+  theme(panel.margin=unit(1,"cm"), axis.text.x=element_text(vjust=0.5,  size=10)) +
+  scale_y_discrete(breaks = c(2^rep(-5:4)), labels = c("2^-5", "2^-4", "2^-3", "2^-2", "2^-1", "1", "2^1", "2^2", "2^3", "2^4")) +
+  scale_x_discrete(breaks = c(2^rep(-10:3)), labels = c("2^-10", "2^-9", "2^-8", "2^-7", "2^-6", "2^-5", "2^-4", "2^-3", "2^-2", "2^-1", "1", "2^1", "2^2", "2^3"))
+ggsave(filename = "./outputs/TrainError_X448_IP.pdf",width = 15, height = 9)
+
+
+```
+
+
+Plot multi-facet of X448 for testing error - different epsilon and m
+```{r Plot multi-facet of X448 testing}
+
+p <- ggplot(v448ip, aes(x=factor(Sigma), y=factor(C), fill=RMSE))
+
+p + geom_tile() +
+  facet_wrap(m ~ Epsilon, ncol=3) +
+  labs(x=expression(paste("Kernel bandwidth, ", sigma)), y="Error penalisation, C") +
+  ggtitle("SVR test error - link X448 IP with 1st order spatial weights") +
+  scale_fill_continuous(guide=guide_colourbar(title="Forecast RMSE"), low="darkred", high="white") +
+  theme(panel.margin=unit(1,"cm"), axis.text.x=element_text(vjust=0.5,  size=10)) +
+  scale_y_discrete(breaks = c(2^rep(-5:4)), labels = c("2^-5", "2^-4", "2^-3", "2^-2", "2^-1", "1", "2^1", "2^2", "2^3", "2^4")) +
+  scale_x_discrete(breaks = c(2^rep(-10:3)), labels = c("2^-10", "2^-9", "2^-8", "2^-7", "2^-6", "2^-5", "2^-4", "2^-3", "2^-2", "2^-1", "1", "2^1", "2^2", "2^3"))
+ggsave(filename = "./outputs/TestError_X448_IP.pdf",width = 15, height = 9)
+
+```
+
+
+
+## Plot errors for X1593
+Combine X1593 training for all m
+```{r Combine X1593 training for all m}
+v3 <- v.ip.m3$X1593$error_mat
+v6 <- v.ip.m6$X1593$error_mat
+v12 <- v.ip.m12$X1593$error_mat
+
+v1593ip <- rbind(v3, v6, v12)
+v1593ip <- cbind(v1593ip, c(rep(3,nrow(v3)), rep(6,nrow(v6)), rep(12,nrow(v12))))
+colnames(v1593ip)[8] <- "m" 
+v1593ip <- as.data.frame(v1593ip)
+
+rm(v3, v6, v12)
+```
+
+Plot multi-facet of X1593 for training error ~ different epsilon and m
+```{r Plot multi-facet of X1593 training}
+
+p <- ggplot(v1593ip, aes(x=factor(Sigma), y=factor(C), fill=TrainingError))
+
+p + geom_tile() +
+  facet_wrap(m ~ Epsilon, ncol=3) +
+  labs(x=expression(paste("Kernel bandwidth, ", sigma)), y="Error penalisation, C") +
+  ggtitle("SVR training error - link X1593 IP with 1st order spatial weights") +
+  scale_fill_continuous(guide=guide_colourbar(title="Training RMSE"), low="#000066", high="white") +
+  theme(panel.margin=unit(1,"cm"), axis.text.x=element_text(vjust=0.5,  size=10)) +
+  scale_y_discrete(breaks = c(2^rep(-5:4)), labels = c("2^-5", "2^-4", "2^-3", "2^-2", "2^-1", "1", "2^1", "2^2", "2^3", "2^4")) +
+  scale_x_discrete(breaks = c(2^rep(-10:3)), labels = c("2^-10", "2^-9", "2^-8", "2^-7", "2^-6", "2^-5", "2^-4", "2^-3", "2^-2", "2^-1", "1", "2^1", "2^2", "2^3"))
+ggsave(filename = "./outputs/TrainError_X1593_IP.pdf",width = 15, height = 9)
+
+
+```
+
+Plot multi-facet of X1593 for testing error ~ different epsilon and m
+```{r Plot multi-facet of X1593 testing}
+
+p <- ggplot(v1593ip, aes(x=factor(Sigma), y=factor(C), fill=RMSE))
+
+p + geom_tile() +
+  facet_wrap(m ~ Epsilon, ncol=3) +
+  labs(x=expression(paste("Kernel bandwidth, ", sigma)), y="Error penalisation, C") +
+  ggtitle("SVR test error - link X1593 IP with 1st order spatial weights") +
+  scale_fill_continuous(guide=guide_colourbar(title="Forecast RMSE"), low="darkred", high="white") +
+  theme(panel.margin=unit(1,"cm"), axis.text.x=element_text(vjust=0.5,  size=10)) +
+  scale_y_discrete(breaks = c(2^rep(-5:4)), labels = c("2^-5", "2^-4", "2^-3", "2^-2", "2^-1", "1", "2^1", "2^2", "2^3", "2^4")) +
+  scale_x_discrete(breaks = c(2^rep(-10:3)), labels = c("2^-10", "2^-9", "2^-8", "2^-7", "2^-6", "2^-5", "2^-4", "2^-3", "2^-2", "2^-1", "1", "2^1", "2^2", "2^3"))
+ggsave(filename = "./outputs/TestError_X1593_IP.pdf",width = 15, height = 9)
+
+```
+
+Detailed data checking
+```{r Detailed data checking}
+
+v448ip %>% group_by(Epsilon, m) %>% summarise(min(TrainingError), min(RMSE)) %>% View()
+
+v1593ip %>% group_by(Epsilon, m) %>% summarise(min(TrainingError), min(RMSE)) %>% View()
+
+```
+
+
+```{r Clean up}
+save(list=ls(pattern="v\\.*ip"), file="./data/SVR_ip_training.RData")
+
+rm(v448ip, v1593ip)
+```
+
+
+
+
+
+
+

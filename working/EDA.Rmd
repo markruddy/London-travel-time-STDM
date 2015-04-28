@@ -74,7 +74,7 @@ ujt.wkd <- ujt.dt %>%
   mutate(day = weekdays(as.Date(date))) %>%
   group_by(dtime, day) %>%
   summarise_each(funs(mean)) %>%
-  select(dtime, day, X425, X2085, X432, X1419, X463, X1593)
+  select(dtime, day, X425, X2085, X432, X1419, X463, X1593, X1447)
 
 # tidy data
 ujt.wkd.g <- ujt.wkd %>% gather(link, mean, -dtime:-day)

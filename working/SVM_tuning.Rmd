@@ -1,0 +1,291 @@
+---
+title: "Space-time traffic SVMs"
+author: "Mark Ruddy"
+date: "17 April 2015"
+output: html_document
+---
+
+Setup: data, functions and packages
+```{r Setup: data, functions and packages}
+library(kernlab)
+library(ggplot2)
+library(grid)
+library(dplyr)
+library(tidyr)
+
+source("./functions/Kernel_methods_lib.R")
+source("./functions/trainmodel.R")
+load("./data/STDM_base.RData")
+
+# rmse function
+rmse <- function(obs, pred, na.rm=TRUE) {
+  sqrt(mean((obs-pred)^2, na.rm=na.rm))
+  }
+
+traffic <- ujt.repl.hist
+```
+
+```{r Prepare weight matrices}
+# weight matrices as.matrix
+w1.m <- as.matrix(w1[,-1])
+w2.m <- as.matrix(w2[,-1])
+w3.m <- as.matrix(w3[,-1])
+
+```
+
+
+## Experimental forecasting with m=3, matrix w1, link X425
+Prepare data
+```{r Prepare space time series}
+# Prepare weights matrix
+w1.m <- as.matrix(w1[,-1])
+
+# embed time series
+# m: historical period over which prediction is based
+# col: data to be modelled
+# W: weights matrix (the spatial neighbours that affect data to be modelled)
+# ii: whether to use 'col' data in modelling process
+stseries_m3 <- st_embed(data=select(traffic,-dtime:-date), m=3, col=1, W=w1.m, ii=TRUE)
+# gives matrix X of dimensions nrow(data)*(m*(number of spatial neighbours if ii=TRUE))
+# gives vector y of 'col' variables of length (m+1)*nrow(data)
+# eg if m=3, and col="X425", 1st order W specifies neighbours with X2140 and X1592. This gives a nrow(data)*9 matrix X.
+```
+
+Create training and testing datasets
+```{r Create training and testing datasets}
+stXtr <- stseries_m3$X[1:4000,]
+stXts <- stseries_m3$X[4001:nrow(stseries$X),]
+stytr <- stseries_m3$y[1:4000,]
+styts <- stseries_m3$y[4001:nrow(stseries$y),]
+```
+
+Train space-time model
+```{r Train space-time model}
+# test 1
+c <- 2^rep(-1:3) # 0.5 1.0 2.0 4.0 8.0
+sig <- 2^rep(-6:2) # 0.25 0.50 1.00 2.00 4.00 8.00
+eps <-c(0.01, 0.1, 0.5)
+
+# tune SVR model
+ptm <- proc.time()
+validation <- trainmodel(stXtr, stytr, stXts, styts, sigma=sig, C=c, epsilon=eps, cross=5)
+proc.time() - ptm
+
+# plot best
+ptm <- proc.time()
+stmodel <- ksvm(x=stXtr,y=stytr,type="eps-svr",kernel="rbfdot", kpar=list(sigma=2), C=8, epsilon=0.01, cross=5)
+proc.time() - ptm
+
+matplot(cbind(styts, stforecast), type="l")
+
+```
+
+
+Train space-time model
+```{r Plot space-time model}
+
+# plot best
+ptm <- proc.time()
+stmodel <- ksvm(x=stXtr,y=stytr,type="eps-svr",kernel="rbfdot", kpar=list(sigma=2), C=8, epsilon=0.01, cross=5)
+proc.time() - ptm
+
+matplot(cbind(styts, stforecast), type="l")
+
+```
+
+
+
+
+SVR training multiple links
+```{r SVR training multiple links}
+# using function trainTraffic.R
+source("./functions/trainTraffic.R")
+
+# parmaters
+c <- 2^rep(-5:4) # 
+sig <- 2^rep(-10:3) # 
+eps <-c(0.25, 0.5, 1, 2)
+
+vlink_m3 <- trainTraffic(ujt = select(traffic, -dtime:-date), weights = w1.m, link = 1, m = 3, C = c, epsilon = eps, sigma = sig)
+
+sum(vlink_m3$X425$error_mat[,"time"])/60
+```
+
+
+```{r Plot parameters}
+
+vm3 <- as.data.frame(vlink_m3$X425$error_mat)
+
+p <- ggplot(vm3, aes(x=factor(Sigma), y=factor(C), fill=TrainingError))
+
+p + geom_tile() +
+  facet_wrap(~ Epsilon) +
+  labs(x=expression(paste("Kernel bandwidth, ", sigma)), y="Error penalisation, C") +
+  ggtitle("SVR training error - link X425 with m=3") +
+  scale_y_discrete(breaks = c(2^rep(-5:4)), labels = c(expression(2^{-5}), expression(2^{-4}), expression(2^{-3}), expression(2^{-2}), expression(2^{-1}), expression(1), expression(2^{1}), expression(2^{2}), expression(2^{3}), expression(2^{4}))) +
+  scale_x_discrete(breaks = c(2^rep(-10:3)), labels = c(expression(2^{-10}), expression(2^{-9}), expression(2^{-8}), expression(2^{-7}), expression(2^{-6}), expression(2^{-5}), expression(2^{-4}), expression(2^{-3}), expression(2^{-2}), expression(2^{-1}), expression(1), expression(2^{1}), expression(2^{2}), expression(2^{3}))
+
+                     
+
+vm3E025 <- vm3 %>%
+  filter(Epsilon==0.25)
+
+vm3E05 <- vm3 %>%
+  filter(Epsilon==0.5)
+
+vm3E1 <- vm3 %>%
+  filter(Epsilon==1)
+
+p <- ggplot(vm3E025, aes(x=factor(Sigma), y=factor(C), fill=TrainingError))
+p + geom_tile()
+
+p <- ggplot(vm3E05, aes(x=factor(Sigma), y=factor(C), fill=TrainingError))
+p + geom_tile()
+
+p <- ggplot(vm3E1, aes(x=factor(Sigma), y=factor(C), fill=TrainingError))
+p + geom_tile()
+
+
+
+p <- ggplot(vm3E025, aes(x=factor(Sigma), y=factor(C), fill=RMSE))
+p + geom_tile()
+
+p <- ggplot(vm3E05, aes(x=factor(Sigma), y=factor(C), fill=RMSE))
+p + geom_tile()
+
+p <- ggplot(vm3E1, aes(x=factor(Sigma), y=factor(C), fill=RMSE))
+p + geom_tile()
+
+
+# clean up
+rm(vm, p)
+```
+
+
+```{r Plot best m3}
+
+# plot best
+ptm <- proc.time()
+stmodel <- ksvm(x=stXtr,y=stytr,type="eps-svr",kernel="rbfdot", kpar=list(sigma=2), C=16, epsilon=0.25, cross=5)
+proc.time() - ptm
+
+matplot(cbind(styts, stforecast), type="l")
+
+```
+
+Train SVR for X425 with multiple paramaters
+```{r Train SVR}
+# m=3, 6, 12
+# weights 1,2,3
+# Links X425
+
+c <- 2^rep(-5:4) # 
+sig <- 2^rep(-10:3) # 
+eps <-c(0.25, 0.5, 1, 2)
+
+# weights 1
+v.w1.m3 <- trainTraffic(ujt = select(traffic, -dtime:-date), weights = w1.m, link = c(1), m = 3, C = c, epsilon = eps, sigma = sig)
+
+v.w1.m6 <- trainTraffic(ujt = select(traffic, -dtime:-date), weights = w1.m, link = c(1), m = 6, C = c, epsilon = eps, sigma = sig)
+
+v.w1.m12 <- trainTraffic(ujt = select(traffic, -dtime:-date), weights = w1.m, link = c(1), m = 12, C = c, epsilon = eps, sigma = sig)
+
+# weights 2
+v.w2.m3 <- trainTraffic(ujt = select(traffic, -dtime:-date), weights = w2.m, link = c(1), m = 3, C = c, epsilon = eps, sigma = sig)
+
+v.w2.m6 <- trainTraffic(ujt = select(traffic, -dtime:-date), weights = w2.m, link = c(1), m = 6, C = c, epsilon = eps, sigma = sig)
+
+v.w2.m12 <- trainTraffic(ujt = select(traffic, -dtime:-date), weights = w2.m, link = c(1), m = 12, C = c, epsilon = eps, sigma = sig)
+
+
+# weights 3
+v.w3.m3 <- trainTraffic(ujt = select(traffic, -dtime:-date), weights = w3.m, link = c(1), m = 3, C = c, epsilon = eps, sigma = sig)
+
+v.w3.m6 <- trainTraffic(ujt = select(traffic, -dtime:-date), weights = w3.m, link = c(1), m = 6, C = c, epsilon = eps, sigma = sig)
+
+v.w3.m12 <- trainTraffic(ujt = select(traffic, -dtime:-date), weights = w3.m, link = c(1), m = 12, C = c, epsilon = eps, sigma = sig)
+
+# save(list=ls(pattern="v\\.w*"), file="./data/SVR_training_X425")
+
+```
+
+
+
+```{r Plot RMSE for X425}
+vw1m6 <- as.data.frame(v.w1.m6$X425$error_mat)
+
+# training error m6
+p <- ggplot(vw1m6, aes(x=factor(Sigma), y=factor(C), fill=TrainingError))
+
+p + geom_raster() +
+  facet_wrap(~ Epsilon) +
+  labs(x=expression(paste("Kernel bandwidth, ", sigma)), y="Error penalisation, C") +
+  ggtitle("SVR training error - link X425 with 1st order spatial weights and m=6") +
+  scale_fill_continuous("Training RMSE", low="#000066", high="white") +
+  theme(panel.margin=unit(1,"cm"), legend.position="bottom", axis.text.x=element_text(vjust=0.5,  size=10)) +
+  scale_y_discrete(breaks = c(2^rep(-5:4)), labels = c("2^-5", "2^-4", "2^-3", "2^-2", "2^-1", "1", "2^1", "2^2", "2^3", "2^4")) +
+  scale_x_discrete(breaks = c(2^rep(-10:3)), labels = c("2^-10", "2^-9", "2^-8", "2^-7", "2^-6", "2^-5", "2^-4", "2^-3", "2^-2", "2^-1", "1", "2^1", "2^2", "2^3"))
+ggsave(filename = "./outputs/TrainError_X425_m6.pdf",width = 12, height = 8)
+
+
+# rmse m6
+p <- ggplot(vw1m6, aes(x=factor(Sigma), y=factor(C), fill=RMSE))
+
+p + geom_raster() +
+  facet_wrap(~ Epsilon) +
+  labs(x=expression(paste("Kernel bandwidth, ", sigma)), y="Error penalisation, C") +
+  ggtitle("SVR forecast error - link X425 with 1st order spatial weights and m=6") +
+  scale_fill_continuous("Forecast RMSE", low="darkred", high="white") +
+  theme(panel.margin=unit(1,"cm"), legend.position="bottom", axis.text.x=element_text(vjust=0.5,  size=10)) +
+  scale_y_discrete(breaks = c(2^rep(-5:4)), labels = c("2^-5", "2^-4", "2^-3", "2^-2", "2^-1", "1", "2^1", "2^2", "2^3", "2^4")) +
+  scale_x_discrete(breaks = c(2^rep(-10:3)), labels = c("2^-10", "2^-9", "2^-8", "2^-7", "2^-6", "2^-5", "2^-4", "2^-3", "2^-2", "2^-1", "1", "2^1", "2^2", "2^3"))
+
+ggsave(filename = "./outputs/TestError_X425_m6.pdf",width = 12, height = 8)
+rm(vw1m6, p)
+```
+
+
+
+Train SVR for X1593 with multiple paramaters
+```{r Train SVR}
+# m=3, 6, 12
+# weights 1,2,3
+# Links X1593
+
+c <- 2^rep(-5:4) # 
+sig <- 2^rep(-10:3) # 
+eps <-c(0.25, 0.5, 1, 2)
+
+# weights 1
+v.X1593.w1.m3 <- trainTraffic(ujt = select(traffic, -dtime:-date), weights = w1.m, link = c(12), m = 3, C = c, epsilon = eps, sigma = sig)
+
+v.X1593.w1.m6 <- trainTraffic(ujt = select(traffic, -dtime:-date), weights = w1.m, link = c(12), m = 6, C = c, epsilon = eps, sigma = sig)
+
+v.X1593.w1.m12 <- trainTraffic(ujt = select(traffic, -dtime:-date), weights = w1.m, link = c(12), m = 12, C = c, epsilon = eps, sigma = sig)
+
+# weights 2
+v.X1593.w2.m3 <- trainTraffic(ujt = select(traffic, -dtime:-date), weights = w2.m, link = c(12), m = 3, C = c, epsilon = eps, sigma = sig)
+
+v.X1593.w2.m6 <- trainTraffic(ujt = select(traffic, -dtime:-date), weights = w2.m, link = c(12), m = 6, C = c, epsilon = eps, sigma = sig)
+
+v.X1593.w2.m12 <- trainTraffic(ujt = select(traffic, -dtime:-date), weights = w2.m, link = c(12), m = 12, C = c, epsilon = eps, sigma = sig)
+
+
+# weights 3
+v.X1593.w3.m3 <- trainTraffic(ujt = select(traffic, -dtime:-date), weights = w3.m, link = c(12), m = 3, C = c, epsilon = eps, sigma = sig)
+
+v.X1593.w3.m6 <- trainTraffic(ujt = select(traffic, -dtime:-date), weights = w3.m, link = c(12), m = 6, C = c, epsilon = eps, sigma = sig)
+
+v.X1593.w3.m12 <- trainTraffic(ujt = select(traffic, -dtime:-date), weights = w3.m, link = c(12), m = 12, C = c, epsilon = eps, sigma = sig)
+
+save(list=ls(pattern="v\\.X1593*"), file="./data/SVR_training_X1593")
+
+```
+
+
+
+
+
+
+
+

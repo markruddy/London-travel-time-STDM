@@ -1,0 +1,116 @@
+---
+title: "Historic data"
+author: "Mark Ruddy"
+date: "29 March 2015"
+output: html_document
+---
+
+# Imports
+## Packages and functions.
+```{r}
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(grid) # for arrows
+```
+
+# Description
+
+Links X1384, X2007, X2140, and X2301 are represented by historic data in the form of repeated weekly averages for these links. Identical UJT observations between weeks for these links are not only unrealistic but will result in problems later in analysis when differencing is attempted.
+
+Links X1384 and X2140 share a common edge and 2140 shares an edge with link X425. Links X2007 and X2301 share a common edge and lie inbetween links X1025 and X1616 (with edges shared between X2007 and X1616, and X2301 and X1025).
+
+One solution is to add white noise to the time series of each link.
+The parameters of the white noise can be inferred from non-historic links that share edges with historic links.
+So find sds for AMP, IP and PMP for the following links:
+
+X425, X1025 and X1616
+Links X1384 and X2140 share an edge, and link X2140 shares an edge with link X425.
+Links X2007 and X2301 share a common edge and lie between links X1025 and X1616.
+
+```{r SDs for links X425, X1025 and X1616}
+
+h.sds <- u.w %>%
+  select(dtime, time, date, X1025, X1616, X425) %>%
+  mutate(period = ifelse(dtime < 10, "AMP", ifelse(dtime >= 16, "PMP", "IP"))) %>%
+  gather(link, ujt, -period, -dtime:-date) %>%
+  group_by(link, period) %>%
+  summarise(sd=sd(ujt))
+```
+
+Approach:
+1. Take one historic link week
+2. Repeat to length time series
+2. Add rnorm with sd from each period for each link to time series
+3. Replace historic link data with randomised historic link data
+
+Apply sds to historic links
+```{r Apply sds to historic links}
+# historic links
+names <- list( c("X1384","X425"), c("X2140","X425"), c("X2301","X1025"), c("X2007", "X1025") )
+
+source("./functions/hist_rand.R")
+
+# historic and outliers
+## long format dataset (links as columns)
+u.w.repl.long <- u.w.repl %>% 
+  spread(link, ujt) %>%
+  arrange(date, dtime)
+## model
+ujt.repl.hist <- hist_rand(u.w.repl.long, names)
+
+```
+
+```{r Plot historic links}
+
+# For link X1384
+u.g.1384 <- ujt.repl.hist %>% select(dtime, X1384) %>% gather(link, ujt, -dtime)
+u.g.425 <- ujt.repl.hist %>% select(dtime, X425) %>% gather(link, ujt, -dtime)
+u.1384.orig <- u.w.rep %>% filter(link=="X1384") %>% slice(1:181)
+
+p <- ggplot(u.g.1384, aes(x=dtime, y=ujt))
+
+p +
+  geom_point(data=u.g.425, aes(x=dtime, y=ujt), alpha=1, colour="green4", size=1, shape=1) +
+  geom_point(colour="dodgerblue", alpha=0.8, size=1.5) +
+  #stat_summary(aes(x=dtime, y=ujt), data=u.425, fun.y=mean, colour="deeppink", geom= "line", size=1) +
+  #stat_summary(fun.y=mean, colour="grey20", geom= "line", size=1) +
+  geom_line(data=u.1384.orig, aes(x=dtime, y=ujt), colour="dodgerblue4", alpha=0.8, size=1.5) + 
+  theme(panel.grid.minor=element_blank()) +
+  geom_vline(xintercept=10, colour="grey50", size=1) +
+  geom_vline(xintercept=16, colour="grey50", size=1) +
+  annotate("text", x=8, y= -0.05, label= "AMP") +
+  annotate("text", x=13, y=-0.05, label= "IP") +
+  annotate("text", x=18.5, y=-0.05, label= "PMP") +
+  #geom_text(aes(label=ifelse((ujt>olimit), paste(date),"")), size=3, hjust=1.1) + 
+  labs(title="Modelled UJTs: link X1384 Wednesdays", x="Time of day", y="Unit Journey Time (seconds/metre)") +
+  scale_x_continuous(limits=c(6,21), breaks=6:21) +
+  scale_y_continuous(limits=c(-0.1,0.6), breaks=seq(from = 0, to = 0.6, by = 0.1)) +
+  annotate(geom="point", x=6.5, y=0.6, colour="dodgerblue", alpha=0.8, size=2) +
+  annotate(geom="text", x=7.5, y=0.6, label="Modelled X1384 UJTs", hjust=0) + 
+  annotate(geom="point", x=6.5, y=0.55, colour="green4", alpha=1, size=1.5, shape=1) +
+  annotate(geom="text", x=7.5, y=0.55, label="X425 UJTs", hjust=0) +
+  annotate(geom="segment", x=6, xend=7, y=0.5, yend=0.5, colour="dodgerblue4", size=1.5) +
+  annotate(geom="text", x=7.5, y=0.5, label="Historic X1384 averages", hjust=0)
+
+# clean up
+rm(p, u.g.1384, u.g.425, u.1384.orig)
+
+```
+
+
+```{r testing}
+#names <- list( c("X1384","X425"), c("X2140","X425"), c("X2301","X1025"), c("X2007", "X1616") )
+
+u.w.repl %>%
+  #mutate(Period=AMP)
+  filter(link == "X425" | link == "X1025" | link == "X1616") %>%
+  group_by(link) %>%
+  filter(dtime>= 10 & dtime<16) %>%
+  summarise(sd=sd(ujt)) %>%
+  View()
+
+
+```
+
+

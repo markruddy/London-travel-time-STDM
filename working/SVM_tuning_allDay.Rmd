@@ -1,0 +1,278 @@
+---
+title: "Space-time traffic SVMs for whole day"
+author: "Mark Ruddy"
+date: "17 April 2015"
+output: html_document
+---
+
+
+# Tuning SVM model of traffic data from whole day
+1. Import data
+2. Train models using 1st order spatial weights
+3. Try different lengths of hsitorical data for regression (m=c(3, 6, 12): 15, 30 and 60 minutes)
+4. Choose two links for model assessment (X448, X1593)
+5. Train with 80% training data
+
+## Setup: data, functions and packages
+
+```{r Setup: data, functions and packages}
+library(kernlab)
+library(ggplot2)
+library(grid)
+library(dplyr)
+library(tidyr)
+
+source("./functions/Kernel_methods_lib.R")
+source("./functions/trainModel.R") # train models with mutiple parameters
+source("./functions/trainTraffic.R") # train models with mutiple parameters from multiple datasets
+source("./functions/Kernel_methods_lib.R")
+  
+# datasets including spatial weights and Wednesday UJTs
+load("./data/STDM_base.RData")
+
+# rmse function
+rmse <- function(obs, pred, na.rm=TRUE) {
+  sqrt(mean((obs-pred)^2, na.rm=na.rm))
+  }
+
+# Wednesday UJTs
+t <- ujt.repl.hist
+```
+
+
+Prepare data
+```{r Prepare weight matrices}
+# weight matrices as.matrix
+w1.m <- as.matrix(w1[,-1])
+w2.m <- as.matrix(w2[,-1])
+w3.m <- as.matrix(w3[,-1])
+
+```
+
+
+## Train UJT for links X448 and X1593
+
+NB:embed time series
+# m: historical period over which prediction is based
+# col: data to be modelled
+# W: weights matrix (the spatial neighbours that affect data to be modelled)
+# ii: whether to use 'col' data in modelling process
+stseries_m3 <- st_embed(data=select(t,-dtime:-date), m=3, col=1, W=w1.m, ii=TRUE)
+# gives matrix X of dimensions nrow(data)*(m*(number of spatial neighbours if ii=TRUE)+1)
+# gives vector y of 'col' variables of length (m+1)*nrow(data)
+# eg if m=3, and col="X425", 1st order W specifies neighbours with X2140 and X1592. This gives a nrow(data)*9 matrix X.
+
+```{r Train UJT}
+# parmaters
+C <- 2^rep(-5:4) # 
+sigma <- 2^rep(-9:2) # 
+epsilon <-c(0.01, 0.1, 0.5) # 
+
+
+# split at 3620 is 20 days of Wednesday observations (20 days * 181 5min intervals) 
+v.day.m3 <- trainTraffic(ujt = select(t, -dtime:-date), weights = w1.m, link= c(3, 12), m = 3, C = C, epsilon = epsilon, sigma = sigma, split = 3620)
+
+v.day.m6 <- trainTraffic(ujt = select(t, -dtime:-date), weights = w1.m, link = c(3, 12), m = 6, C = C, epsilon = epsilon, sigma = sigma, split = 3620)
+
+v.day.m12 <- trainTraffic(ujt = select(t, -dtime:-date), weights = w1.m, link = c(3, 12), m = 12, C = C, epsilon = epsilon, sigma = sigma, split = 3620)
+
+```
+
+## Plot errors for X448
+Combine x448 training for all m
+```{r Combine x448 training for all m}
+v3 <- v.day.m3$X448$error_mat
+v6 <- v.day.m6$X448$error_mat
+v12 <- v.day.m12$X448$error_mat
+
+v448 <- rbind(v3, v6, v12)
+v448 <- cbind(v448, c(rep(3,nrow(v3)), rep(6,nrow(v6)), rep(12,nrow(v12))))
+colnames(v448)[8] <- "m" 
+v448 <- as.data.frame(v448)
+
+rm(v3, v6, v12)
+```
+
+Plot multi-facet of X448 for training error ~ different epsilon and m
+```{r Plot multi-facet of X448 training}
+
+p <- ggplot(v448, aes(x=factor(Sigma), y=factor(C), fill=log(TrainingError)))
+
+p + geom_tile() +
+  facet_wrap(m ~ Epsilon, ncol=3) +
+  labs(x=expression(paste("Kernel bandwidth, ", sigma)), y="Error penalisation, C") +
+  ggtitle("SVR training error - link X448 with 1st order spatial weights") +
+  scale_fill_continuous(guide=guide_colourbar(title="log Training RMSE"), low="#000066", high="white") +
+  theme(panel.margin=unit(1,"cm"), axis.text.x=element_text(vjust=0.5,  size=10)) +
+  scale_y_discrete(breaks = c(2^rep(-5:4)), labels = c("2^-5", "2^-4", "2^-3", "2^-2", "2^-1", "1", "2^1", "2^2", "2^3", "2^4")) +
+  scale_x_discrete(breaks = c(2^rep(-10:3)), labels = c("2^-10", "2^-9", "2^-8", "2^-7", "2^-6", "2^-5", "2^-4", "2^-3", "2^-2", "2^-1", "1", "2^1", "2^2", "2^3"))
+#ggsave(filename = "./outputs/TrainError_X448.pdf",width = 15, height = 9)
+ggsave(filename = "./outputs/TrainError_X448.png",width = 15, height = 9)
+
+```
+
+
+Plot multi-facet of X448 for testing error - different epsilon and m
+```{r Plot multi-facet of X448 testing}
+
+p <- ggplot(v448, aes(x=factor(Sigma), y=factor(C), fill=log(RMSE)))
+
+p + geom_tile() +
+  facet_wrap(m ~ Epsilon, ncol=3) +
+  labs(x=expression(paste("Kernel bandwidth, ", sigma)), y="Error penalisation, C") +
+  ggtitle("SVR test error - link X448 with 1st order spatial weights") +
+  scale_fill_continuous(guide=guide_colourbar(title="log Forecast RMSE"), low="darkred", high="white") +
+  theme(panel.margin=unit(1,"cm"), axis.text.x=element_text(vjust=0.5,  size=10)) +
+  scale_y_discrete(breaks = c(2^rep(-5:4)), labels = c("2^-5", "2^-4", "2^-3", "2^-2", "2^-1", "1", "2^1", "2^2", "2^3", "2^4")) +
+  scale_x_discrete(breaks = c(2^rep(-10:3)), labels = c("2^-10", "2^-9", "2^-8", "2^-7", "2^-6", "2^-5", "2^-4", "2^-3", "2^-2", "2^-1", "1", "2^1", "2^2", "2^3"))
+#ggsave(filename = "./outputs/TestError_X448.pdf",width = 15, height = 9)
+ggsave(filename = "./outputs/TestError_X448.png",width = 15, height = 9)
+
+```
+
+
+
+## Plot errors for X1593
+Combine X1593 training for all m
+```{r Combine X1593 training for all m}
+v3 <- v.day.m3$X1593$error_mat
+v6 <- v.day.m6$X1593$error_mat
+v12 <- v.day.m12$X1593$error_mat
+
+v1593 <- rbind(v3, v6, v12)
+v1593 <- cbind(v1593, c(rep(3,nrow(v3)), rep(6,nrow(v6)), rep(12,nrow(v12))))
+colnames(v1593)[8] <- "m" 
+v1593 <- as.data.frame(v1593)
+
+rm(v3, v6, v12)
+```
+
+Plot multi-facet of X1593 for training error ~ different epsilon and m
+```{r Plot multi-facet of X1593 training}
+
+p <- ggplot(v1593, aes(x=factor(Sigma), y=factor(C), fill=log(TrainingError)))
+
+p + geom_tile() +
+  facet_wrap(m ~ Epsilon, ncol=3) +
+  labs(x=expression(paste("Kernel bandwidth, ", sigma)), y="Error penalisation, C") +
+  ggtitle("SVR training error - link X1593 with 1st order spatial weights") +
+  scale_fill_continuous(guide=guide_colourbar(title="log Training RMSE"), low="#000066", high="white") +
+  theme(panel.margin=unit(1,"cm"), axis.text.x=element_text(vjust=0.5,  size=10)) +
+  scale_y_discrete(breaks = c(2^rep(-5:4)), labels = c("2^-5", "2^-4", "2^-3", "2^-2", "2^-1", "1", "2^1", "2^2", "2^3", "2^4")) +
+  scale_x_discrete(breaks = c(2^rep(-10:3)), labels = c("2^-10", "2^-9", "2^-8", "2^-7", "2^-6", "2^-5", "2^-4", "2^-3", "2^-2", "2^-1", "1", "2^1", "2^2", "2^3"))
+#ggsave(filename = "./outputs/TrainError_X1593.pdf",width = 15, height = 9)
+ggsave(filename = "./outputs/TrainError_X1593.png",width = 15, height = 9)
+
+```
+
+Plot multi-facet of X1593 for testing error ~ different epsilon and m
+```{r Plot multi-facet of X1593 testing}
+
+p <- ggplot(v1593, aes(x=factor(Sigma), y=factor(C), fill=log(RMSE)))
+
+p + geom_tile() +
+  facet_wrap(m ~ Epsilon, ncol=3) +
+  labs(x=expression(paste("Kernel bandwidth, ", sigma)), y="Error penalisation, C") +
+  ggtitle("SVR test error - link X1593 with 1st order spatial weights") +
+  scale_fill_continuous(guide=guide_colourbar(title="log Forecast RMSE"), low="darkred", high="white") +
+  theme(panel.margin=unit(1,"cm"), axis.text.x=element_text(vjust=0.5,  size=10)) +
+  scale_y_discrete(breaks = c(2^rep(-5:4)), labels = c("2^-5", "2^-4", "2^-3", "2^-2", "2^-1", "1", "2^1", "2^2", "2^3", "2^4")) +
+  scale_x_discrete(breaks = c(2^rep(-10:3)), labels = c("2^-10", "2^-9", "2^-8", "2^-7", "2^-6", "2^-5", "2^-4", "2^-3", "2^-2", "2^-1", "1", "2^1", "2^2", "2^3"))
+#ggsave(filename = "./outputs/TestError_X1593.pdf",width = 15, height = 9)
+ggsave(filename = "./outputs/TestError_X1593.png",width = 15, height = 9)
+
+```
+
+Detailed data checking
+```{r Detailed data checking}
+# RMSE
+v448 %>% group_by(Epsilon, m) %>% summarise(min(TrainingError), min(RMSE)) %>% View()
+
+v1593 %>% group_by(Epsilon, m) %>% summarise(min(TrainingError), min(RMSE)) %>% View()
+
+# Running times
+
+v448 %>% group_by(C, m) %>% slice(which.min(time)) %>%  View()
+
+v1593 %>% group_by(C, m) %>% slice(which.min(time)) %>%  View()
+
+```
+
+
+Plot models 
+```{r plot best model for 448 and 1593}
+
+# Final model parameter space, estimated from model training above
+# Compromise between potentially overfitting model and allowing generalisation
+# C <- 2^2
+# epsilon <- 0.10
+# sigma <- 2^-4
+# m <- 6
+
+# source("./functions/trainTraffic.R") # train models with mutiple parameters from multiple datasets
+# split at 3620 is 20 days of Wednesday observations (20 days * 181 5min intervals) 
+
+
+split=3620
+C <- 2^2
+epsilon <- 0.10
+sigma <- 2^-4
+m <- 6
+t.fcasts <- select(t, -dtime:-date)
+
+ptm <- proc.time()
+fcasts <- trainTraffic(ujt = t.fcasts, weights = w1.m, link = c(1:dim(t.fcasts)[2]), m = m, C = C, epsilon = epsilon, sigma = sigma, split = split)
+proc.time() - ptm
+
+source("./functions/cbindTModels.R") # bind traffic models together ready for plotting
+
+fcasts.all <- cbindTModels(fcasts,t,split,m)
+fcasts.all <- fcasts.all %>% filter(link != "X1384" & link != "X2007" & link != "X2140" & link != "X2301") # exclude historic links
+
+# tidy for plotting
+fcasts.g <- gather(fcasts.all, Values, ujt, -dtime:-link)
+
+#######################
+# plot links 1:9
+p <- ggplot(data = filter(fcasts.g, link %in% c("X425", "X432","X448", "X463", "X474", "X524", "X1025", "X1419", "X1447")), aes(x = dtime, y = ujt, group = Values, colour = Values))
+
+p + geom_line(alpha=0.7) + #colour="grey60"
+  scale_x_continuous(limits= c(6,21), breaks = seq(from = 6, to = 21, by = 3), labels=as.character(seq(6,21,3))) +
+  facet_grid(link ~ date) +
+  xlab("Time of day (24hr clock)") + ylab("Unit Journey Time (seconds/metre)") +
+  scale_colour_manual(values = c("indianred1", "grey20"))
+#ggsave(filename = "./outputs/Link_predictions_1-9.pdf",width = 15, height = 9)
+ggsave(filename = "./outputs/Link_predictions_1-9.png",width = 220, height = 250, units="mm")
+
+
+#######################
+# plot links 10:18
+p <- ggplot(data = filter(fcasts.g, link %in% c("X1592", "X1593", "X1616", "X1623", "X2052", "X2055", "X2079", "X2085", "X2324")), aes(x = dtime, y = ujt, group = Values, colour = Values))
+
+p + geom_line(alpha=0.7) + #colour="grey60"
+  scale_x_continuous(limits= c(6,21), breaks = seq(from = 6, to = 21, by = 3), labels=as.character(seq(6,21,3))) +
+  facet_grid(link ~ date) +
+  xlab("Time of day (24hr clock)") + ylab("Unit Journey Time (seconds/metre)") +
+  scale_colour_manual(values = c("indianred1", "grey20"))
+#ggsave(filename = "./outputs/Link_predictions_10-18.pdf",width = 15, height = 9)
+ggsave(filename = "./outputs/Link_predictions_10-18.png",width = 220, height = 250, units="mm")
+```
+
+Find diagnostics from models
+```{r Find diagnostics from models}
+
+source("./functions/trafficDiagnostics.R") # function to collect diagnostics
+
+fcast.info <- tInfo(fcast = fcasts) 
+
+```
+
+
+```{r Clean up}
+
+rm(split, C, epsilon, sigma, m, p, t.fcasts)
+
+save(list=ls(pattern="v\\.*day"), file="./data/SVR_allDay_training.RData")
+
+```
+

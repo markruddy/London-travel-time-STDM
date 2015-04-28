@@ -65,19 +65,28 @@ u.w.am <- u.w %>%
 u.w.am <- as.matrix(u.w.am)
 
 # ujt from Wednesday AMP for outlier corrected
-u.w.rep.am <- u.w.rep %>%
+u.w.repl.am <- u.w.repl %>%
   filter(dtime<10)
 
-u.w.rep.am <- u.w.rep.am %>% 
+u.w.repl.am <- u.w.repl.am %>% 
   spread(link, ujt) %>%
   arrange(date, dtime) %>%
   select(-dtime:-date)
 
+u.w.repl.am <- as.matrix(sapply(u.w.repl.am, as.numeric))
+
+# ujt from Wednesday AMP for outlier and historic corrected
+ujt.repl.hist.am <- ujt.repl.hist %>%
+  filter(dtime<10) %>%
+  arrange(date, dtime) %>%
+  select(-dtime:-date)
+
+ujt.repl.hist.am <- as.matrix(sapply(ujt.repl.hist.am, as.numeric))
 # needs to be numeric matrix 
-u.w.rep.am <- as.matrix(sapply(u.w.rep.am, as.numeric))
+
 ```
 
-```{r stacf analyses}
+```{r compare stacf analyses}
 # ACF analysis
 # for uncorrected data
 stacf(u.w.am, w1.m, 150)
@@ -92,25 +101,40 @@ stacf(u.w.am, w3.m, 150)
 # CI= 0.01347053
 
 
-# for corrected data
-stacf(u.w.rep.am, w1.m, 150)
+# for outlier corrected data
+stacf(u.w.repl.am, w1.m, 150)
 # Lag at 48 with correlation of 0.467680378
 # CI = 0.01347053
 
-stacf(u.w.rep.am, w2.m, 150)
+stacf(u.w.repl.am, w2.m, 150)
 # Lag at 48 corr=0.433060499
 # CI=0.01347053
 
 
-stacf(u.w.rep.am, w3.m, 150)
+stacf(u.w.repl.am, w3.m, 150)
 # Lag at 48 corr=0.387099880
 # CI=0.01347053
+
+
+# for outlier and historic corrected data
+stacf(ujt.repl.hist.am, w1.m, 100)
+# Lag at 48 with correlation of 0.342292363
+# CI = 0.01314652
+
+stacf(ujt.repl.hist.am, w2.m, 100)
+# Lag at 48 corr=0.331577916
+# CI=0.01314652
+
+
+stacf(ujt.repl.hist.am, w3.m, 100)
+# Lag at 48 corr=0.33715152
+# CI=0.01314652
+
 
 ```
 
 
-```{r stpacf}
-
+```{r compare stpacf analysis for original historic data}
 # Differencing using lag of 48
 ujt.wed.am.diff <- diff(ujt.wed.am, lag=48, differences=1)
 # this gives a differenced dataset where hisotic links have unit journey times of zero
@@ -130,7 +154,50 @@ stpacf(ujt.wed.am.diff, w1.m, 10)
 
 
 
+Inter-peak test
+```{r Wednesday IP}
+# ujt from Wednesday IP for outlier and historic corrected
+ujt.repl.hist.ip <- ujt.repl.hist %>%
+  filter(dtime>=10 & dtime <16) %>%
+  arrange(date, dtime) %>%
+  select(-time:-date) %>%
+  View()
 
+ujt.repl.hist.ip <- as.matrix(sapply(ujt.repl.hist.ip, as.numeric))
+# needs to be numeric matrix 
+
+```
+
+
+```{r stacf analyses for IP}
+# for outlier and historic corrected data
+ptm <- proc.time()
+stacf(ujt.repl.hist.ip, w1.m, 288)
+proc.time() - ptm
+# Lag at ? with correlation of ?
+# CI = 0.006545321
+#  user  system elapsed 
+# 22.923   0.437  23.415 
+
+```
+
+```{r compare stpacf analysis for replaced historic data}
+# Differencing using lag ?
+ptm <- proc.time()
+ujt.rh.ip.diff <- diff(ujt.repl.hist.ip, lag=48, differences=1)
+proc.time() - ptm
+# this gives a differenced dataset where hisotic links have unit journey times of zero
+
+# Try stacf usig differenced ujt data
+stacf(ujt.rh.ip.diff, w1.m, 100)
+# because historic links in ujt.wed.am.diff are zero the covariances cannot be computed
+
+# Modified stacf() - no plotting
+#st.acf <- stacf2(ujt.wed.am.diff, w1.m, 100)
+
+# partial acf on differenced ujt data
+stpacf(ujt.rh.ip.diff, w1.m, 10)
+```
 
 
 

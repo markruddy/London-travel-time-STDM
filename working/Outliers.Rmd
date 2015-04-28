@@ -44,7 +44,7 @@ u.w <- ujt.dt %>%
   select(-X1384, -X2007, -X2140, -X2301)
   #View()
 
-ujt.g <- ujt.wed %>% gather(link, ujt, -dtime:-date)
+ujt.g <- u.w %>% gather(link, ujt, -dtime:-date)
 
 p <- ggplot(ujt.g, aes(x=dtime, y=ujt))
 
@@ -116,7 +116,7 @@ p + geom_point(alpha=0.4, colour="green4", size=2) +
   annotate(geom="segment", x=17, xend=18.5, y=max(u$ujt)*.8, yend=max(u$ujt)*.8, linetype=4) +
   annotate(geom="text", x=19, y=max(u$ujt)*.8, label="2010-07-28", hjust=-0.1) 
   annotate(geom="segment", x=17, xend=18.5, y=max(u$ujt)*.7, yend=max(u$ujt)*.7, linetype=5) +
-  #annotate(geom="text", x=19, y=max(u$ujt)*.7, label="2010-10-20", hjust=-0.1)
+  annotate(geom="text", x=19, y=max(u$ujt)*.7, label="2010-10-20", hjust=-0.1)
 
 # clean up
 rm(olimit, p)

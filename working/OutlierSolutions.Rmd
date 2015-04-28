@@ -37,12 +37,12 @@ u.w <- ujt.dt %>%
 
 u.w.g <- gather(u.w, link, ujt, -dtime:-date) # tidy data
 
-source("./functions/outlier_rep.R") # function to replace outliers with link means
+source("./functions/outlier_repl.R") # function to replace outliers with link means
 
-u.w.rep <- o.rep(u.w.g, o.dates, o.links) # ujt from wednesdays replaced with means where needed
+u.w.repl <- o.repl(u.w.g, o.dates, o.links) # ujt from wednesdays replaced with means where needed
 
 # check repeats for some outlier days
-u.w.rep %>%
+u.w.repl %>%
   filter(link=="X425",dtime<10, date %in% c("2010-05-26","2010-07-21")) %>%
   View()
 # clean up
@@ -56,10 +56,10 @@ u.w <- ujt.dt %>%
 u.w.g <- gather(u.w, link, ujt, -dtime:-date) # tidy data
 
 # For link X425
-u.rep.425 <- u.w.rep %>% filter(link=="X425")
+u.repl.425 <- u.w.rep %>% filter(link=="X425")
 u.425 <- u.w.g %>% filter(link=="X425")
   
-p <- ggplot(u.rep.425, aes(x=dtime, y=ujt))
+p <- ggplot(u.repl.425, aes(x=dtime, y=ujt))
 
 p +
   geom_point(data=u.425, aes(x=dtime, y=ujt), alpha=1, colour="green4", size=2, shape=1) +
@@ -86,7 +86,7 @@ p +
   annotate(geom="text", x=18.1, y=max(u.425$ujt)*0.85, label="Mean without outliers", hjust=0) 
   
 # clean up
-rm(p, u.w, u.w.g, u.425, u.rep.425)
+rm(p, u.w, u.w.g, u.425, u.repl.425)
 ```
 
 
